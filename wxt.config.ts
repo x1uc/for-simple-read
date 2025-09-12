@@ -11,5 +11,8 @@ export default defineConfig({
     chromiumProfile: resolve('.wxt/browser-data'),
     keepProfileChanges: true,
     chromiumArgs: ['--user-data-dir=./.wxt/browser-data']
+  },
+  manifest: {
+    permissions: ["storage"],
   }
 });

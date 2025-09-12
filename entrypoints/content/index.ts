@@ -2,6 +2,8 @@ import "../../assets/tailwind.css";
 import { createApp } from "vue";
 import popup_thumb from "./popup_thumb.vue";
 import word_card from "./demo.vue"; // 引入 word_card 组件
+import ai_trans_card from "./ai_trans_card.vue";
+import { select_word_storage } from "@/libs/select_word";
 
 // 1. 定义一个简单的事件管理器
 class EventManager {
@@ -106,12 +108,7 @@ export default defineContentScript({
             const app = createApp(word_card);
             // 同样注入 eventManager
             app.provide('eventManager', eventManager);
-            app.provide('ojb', {
-              word: 'example',
-              pronounce: '/ɪɡˈzɑːmp(ə)l/',
-              meaning:
-                "n.例子，例证；榜样，楷模；典型，范例；例句，例题；警戒，受罚（以示警告）者\nv.得到说明，可加以举例说明"
-            })
+            app.provide('ojb', select_word_storage); 
             app.mount(container);
             return app;
           },
@@ -152,6 +149,7 @@ export default defineContentScript({
 
       const selection = window.getSelection();
       if (selection && selection.toString().trim()) {
+        select_word_storage.setValue(selection.toString().trim());
         const position = getSelectionPosition();
         if (position) {
           await ensure_popup_thumb(position);
@@ -163,6 +161,32 @@ export default defineContentScript({
       }
     });
 
+    let ai_trans_card_ui: any = null;
+    const ensure_ai_trans_card = async () => {
+      if (!ai_trans_card_ui) {
+        ai_trans_card_ui = await createShadowRootUi(ctx, {
+          name: 'ai-trans-card',
+          position: 'overlay',
+          anchor: 'body',
+          onMount(container) {
+            // 设置容器的绝对定位
+            container.style.position = 'absolute';
+            container.style.zIndex = '10000';
+            container.style.pointerEvents = 'auto';
+
+            const app = createApp(ai_trans_card);
+            // 3. 将 eventManager 注入到 Vue 应用中
+            app.mount(container);
+            return app;
+          },
+          onRemove(app) {
+            app?.unmount();
+          },
+        });
+      }
+    };
+    await ensure_ai_trans_card();
+    ai_trans_card_ui.mount();
   },
 });
 
