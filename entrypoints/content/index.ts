@@ -29,6 +29,8 @@ export default defineContentScript({
   async main(ctx) {
     let popup_thumb_ui: any = null;
     let word_card_ui: any = null;
+    let ai_trans_card_ui: any = null;
+
 
     // 2. 实例化事件管理器
     const eventManager = new EventManager();
@@ -42,7 +44,7 @@ export default defineContentScript({
 
       return {
         x: rect.left + window.scrollX,
-        y: rect.bottom + window.scrollY + 5, // 在选择文本下方5px处显示
+        y: rect.bottom + window.scrollY + 10, // 在选择文本下方5px处显示
         width: rect.width,
         height: rect.height,
         centerX: rect.left + window.scrollX + rect.width / 2,
@@ -84,13 +86,6 @@ export default defineContentScript({
       }
     };
 
-    const remove_thumb_ui = () => {
-      if (popup_thumb_ui) {
-        popup_thumb_ui.remove();
-        popup_thumb_ui = null;
-      }
-    };
-
     // 函数：创建并显示单词卡片UI
     const ensure_word_card = async (position: { x: number, y: number }) => {
       if (!word_card_ui) {
@@ -108,7 +103,7 @@ export default defineContentScript({
             const app = createApp(word_card);
             // 同样注入 eventManager
             app.provide('eventManager', eventManager);
-            app.provide('ojb', select_word_storage); 
+            app.provide('ojb', select_word_storage);
             app.mount(container);
             return app;
           },
@@ -120,6 +115,45 @@ export default defineContentScript({
       word_card_ui.mount();
     };
 
+    const ensure_ai_trans_card = async (position: { x: number, y: number }) => {
+      if (!ai_trans_card_ui) {
+        ai_trans_card_ui = await createShadowRootUi(ctx, {
+          name: 'ai-trans-card',
+          position: 'overlay',
+          anchor: 'body',
+          onMount(container) {
+            // 设置容器的绝对定位
+            container.style.position = 'absolute';
+            container.style.left = `${position.x}px`;
+            container.style.top = `${position.y}px`;
+            container.style.zIndex = '10000';
+            container.style.pointerEvents = 'auto';
+
+            const app = createApp(ai_trans_card);
+            // 3. 将 eventManager 注入到 Vue 应用中
+
+            // 同样注入 eventManager
+            app.provide('eventManager', eventManager);
+            app.provide('ojb', select_word_storage);
+            app.mount(container);
+            return app;
+          },
+          onRemove(app) {
+            app?.unmount();
+          },
+        });
+      }
+      ai_trans_card_ui.mount();
+    };
+
+    // 函数：移除选择框
+    const remove_thumb_ui = () => {
+      if (popup_thumb_ui) {
+        popup_thumb_ui.remove();
+        popup_thumb_ui = null;
+      }
+    };
+
     // 函数：移除单词卡片UI
     const remove_word_card_ui = () => {
       if (word_card_ui) {
@@ -128,17 +162,38 @@ export default defineContentScript({
       }
     };
 
-    // 4. 使用 eventManager 监听事件
+    // 函数：移除AI翻译卡片UI
+    const remove_ai_trans_card_ui = () => {
+      if (ai_trans_card_ui) {
+        ai_trans_card_ui.remove();
+        ai_trans_card_ui = null;
+      }
+    }
+
     eventManager.on('show-word-card', () => {
       const position = getSelectionPosition();
       if (position) {
         remove_thumb_ui();
+        remove_ai_trans_card_ui();
         ensure_word_card(position);
+      }
+    });
+
+    eventManager.on('show-ai-trans-card', () => {
+      const position = getSelectionPosition();
+      if (position) {
+        remove_thumb_ui();
+        remove_word_card_ui(); // 移除单词卡，确保同时只显示一个卡片
+        ensure_ai_trans_card(position);
       }
     });
 
     eventManager.on('close-word-card', () => {
       remove_word_card_ui();
+    });
+
+    eventManager.on('close-ai-trans-card', () => {
+      remove_ai_trans_card_ui();
     });
 
     document.addEventListener("mouseup", async (e) => {
@@ -158,35 +213,9 @@ export default defineContentScript({
       } else {
         remove_thumb_ui();
         remove_word_card_ui(); // 同时移除单词卡
+        remove_ai_trans_card_ui(); // 同时移除AI翻译卡
       }
     });
-
-    let ai_trans_card_ui: any = null;
-    const ensure_ai_trans_card = async () => {
-      if (!ai_trans_card_ui) {
-        ai_trans_card_ui = await createShadowRootUi(ctx, {
-          name: 'ai-trans-card',
-          position: 'overlay',
-          anchor: 'body',
-          onMount(container) {
-            // 设置容器的绝对定位
-            container.style.position = 'absolute';
-            container.style.zIndex = '10000';
-            container.style.pointerEvents = 'auto';
-
-            const app = createApp(ai_trans_card);
-            // 3. 将 eventManager 注入到 Vue 应用中
-            app.mount(container);
-            return app;
-          },
-          onRemove(app) {
-            app?.unmount();
-          },
-        });
-      }
-    };
-    await ensure_ai_trans_card();
-    ai_trans_card_ui.mount();
   },
 });
 
