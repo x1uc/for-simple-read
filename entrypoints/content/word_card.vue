@@ -14,15 +14,14 @@
             </div>
             <div class="flex items-center justify-center">
                 <div @click="highlightWord"
-                    class="bg-gray-200 rounded mx-2 px-4 py-2 text-base cursor-pointer hover:bg-yellow-200 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center">
+                    class="bg-gray-200 rounded mx-2 px-4 py-2 text-base cursor-pointer hover:bg-yellow-200 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center select-none">
                     高亮
                 </div>
                 <div
-                    class="bg-gray-200 rounded px-4 py-2 text-base cursor-pointer hover:bg-yellow-400 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center">
+                    class="bg-gray-200 rounded px-4 py-2 text-base cursor-pointer hover:bg-yellow-400 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center select-none">
                     收藏
                 </div>
             </div>
-
         </div>
         <div class="py-2 text-base text-justify" v-html="ojb?.meaning.replace(/\n/g, '<br>')"></div>
     </div>
