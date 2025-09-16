@@ -29,7 +29,6 @@
 
 <script lang="ts" setup>
 import { inject, ref, onMounted } from 'vue';
-import { HighlightStorage, generateHighlightId, getElementXPath, type HighlightData } from '@/libs/highlight_storage';
 
 let selected_word = inject('ojb') as any;
 let eventManager = inject('eventManager') as any;
