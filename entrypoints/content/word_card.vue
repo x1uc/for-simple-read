@@ -1,29 +1,29 @@
 <template>
-    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-120 max-w-150 min-h-20 p-4 text-black">
+    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-[360px] max-w-[450px] min-h-[60px] p-3 text-black">
         <div v-if="loading_flag" class="items-center justify-center flex h-full py-2">
             <div class="loading loading-dots lodding-sm"></div>
         </div>
         <div v-else class="flex justify-between items-center">
             <div class="flex items-center space-x-2">
-                <div class="text-2xl font-bold">{{ ojb?.word }}</div>
+                <div class="text-xl font-bold">{{ ojb?.word }}</div>
                 <!-- 点击播放发音 -->
                 <div @click="playAudio"
-                    class="text-sm bg-gray-200 rounded-sm px-2 py-1 hover:bg-green-300 hover:bg-opacity-50 cursor-pointer transition-colors duration-100">
+                    class="text-xs bg-gray-200 rounded-sm px-2 py-1 hover:bg-green-300 hover:bg-opacity-50 cursor-pointer transition-colors duration-100">
                     {{ ojb?.pronunciation }}
                 </div>
             </div>
             <div class="flex items-center justify-center">
                 <div @click="highlightWord"
-                    class="bg-gray-200 rounded mx-2 px-4 py-2 text-base cursor-pointer hover:bg-yellow-200 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center select-none">
+                    class="bg-gray-200 rounded mx-1 px-3 py-1 text-sm cursor-pointer hover:bg-yellow-200 hover:bg-opacity-50 transition-colors duration-200 w-[60px] flex items-center justify-center select-none">
                     高亮
                 </div>
                 <div
-                    class="bg-gray-200 rounded px-4 py-2 text-base cursor-pointer hover:bg-yellow-400 hover:bg-opacity-50 transition-colors duration-200 w-20 flex items-center justify-center select-none">
+                    class="bg-gray-200 rounded px-3 py-1 text-sm cursor-pointer hover:bg-yellow-400 hover:bg-opacity-50 transition-colors duration-200 w-[60px] flex items-center justify-center select-none">
                     收藏
                 </div>
             </div>
         </div>
-        <div class="py-2 text-base text-justify" v-html="ojb?.meaning.replace(/\n/g, '<br>')"></div>
+        <div class="py-2 text-sm text-justify" v-html="ojb?.meaning.replace(/\n/g, '<br>')"></div>
     </div>
 </template>
 
