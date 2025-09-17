@@ -1,5 +1,5 @@
 <template>
-    <div class="flex w-35 h-10 border-2 justify-around items-center">
+    <div class="flex w-[120px] h-[30px] border-2 justify-around items-center">
         <div @click="eventManager.emit('show-word-card')"
             class="w-[45%] h-[90%] cursor-pointer bg-red-200 justify-center items-center flex active:bg-red-400 select-none">
             单词

@@ -1,6 +1,6 @@
 <template>
-    <div class="min-w-200 max-w-none min-h-55 rounded-lg shadow-xl w-fit">
-        <div class="flex bg-white text-black text-lg p-2 items-center justify-between">
+    <div class="min-w-[450px] min-h-[165px] rounded-lg shadow-xl w-fit">
+        <div class="flex bg-white text-black text-base p-2 items-center justify-between">
             <div class="flex items-center">
                 <div class="px-2">
                     AI翻译
@@ -16,7 +16,7 @@
                 </svg>
             </div>
         </div>
-        <div class="p-4 bg-gray-200 text-black text-xl font-medium min-h-50 max-h-100 overflow-y-auto"
+        <div class="p-3 bg-gray-200 text-black text-lg font-medium min-h-[150px] max-h-[500px] overflow-y-auto"
             v-html="content.replace(/\n/g, '<br>')">
         </div>
     </div>
