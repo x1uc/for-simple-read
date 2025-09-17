@@ -1,28 +1,48 @@
 <template>
-    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-[360px] max-w-[450px] min-h-[60px] p-3 text-black">
+    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-[420px] min-h-[60px] p-3 text-black">
         <div v-if="loading_flag" class="items-center justify-center flex h-full py-2">
             <div class="loading loading-dots lodding-sm"></div>
         </div>
         <div v-else class="flex justify-between items-center">
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center justify-center">
                 <div class="text-xl font-bold">{{ ojb?.word }}</div>
-                <!-- 点击播放发音 -->
                 <div @click="playAudio"
-                    class="text-xs bg-gray-200 rounded-sm px-2 py-1 hover:bg-green-300 hover:bg-opacity-50 cursor-pointer transition-colors duration-100">
+                      class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
                     {{ ojb?.pronunciation }}
-                </div>
+            </div>
             </div>
             <div class="flex items-center justify-center">
+                <!-- 高亮按钮 -->
                 <div @click="highlightWord"
-                    class="bg-gray-200 rounded mx-1 px-3 py-1 text-sm cursor-pointer hover:bg-yellow-200 hover:bg-opacity-50 transition-colors duration-200 w-[60px] flex items-center justify-center select-none">
-                    高亮
+                     title="高亮"
+                     class="rounded mx-1 p-2 text-sm cursor-pointer hover:bg-gray-100 w-10 h-10 flex items-center justify-center select-none">
+                    <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 11l6-6 3 3-6 6H9v-3z"></path>
+                        <path d="M13 5l3 3"></path>
+                        <path d="M8 17h8"></path>
+                        <path d="M6 21h12"></path>
+                    </svg>
                 </div>
-                <div
-                    class="bg-gray-200 rounded px-3 py-1 text-sm cursor-pointer hover:bg-yellow-400 hover:bg-opacity-50 transition-colors duration-200 w-[60px] flex items-center justify-center select-none">
-                    收藏
+                <!-- 收藏按钮 -->
+                <div @click="toggleFavorite"
+                     title="收藏"
+                     class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
+                    <svg v-if="!isFavorited" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                        <path
+                            d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                    </svg>
+                    <svg v-else class="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor"
+                         aria-hidden="true">
+                        <path
+                            d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                    </svg>
                 </div>
             </div>
         </div>
+
         <div class="py-2 text-sm text-justify" v-html="ojb?.meaning.replace(/\n/g, '<br>')"></div>
     </div>
 </template>
@@ -32,7 +52,7 @@ import { inject, ref, onMounted } from 'vue';
 
 let selected_word = inject('ojb') as any;
 let eventManager = inject('eventManager') as any;
-let cachedWordData = inject('cachedWordData', null) as any; // 注入缓存的单词数据
+let cachedWordData = inject('cachedWordData', null) as any;
 
 let loading_flag = ref<boolean>(true);
 
@@ -43,10 +63,10 @@ type WordData = {
 };
 
 let ojb = ref<WordData | null>(null);
+const isFavorited = ref(false);
 
 const fetch_word_data = async () => {
     try {
-        // 如果有缓存的数据，直接使用
         if (cachedWordData) {
             console.log('Using cached word data:', cachedWordData);
             ojb.value = {
@@ -57,13 +77,10 @@ const fetch_word_data = async () => {
             loading_flag.value = false;
             return;
         }
-
-        // 没有缓存数据，从API获取
         const word = await selected_word.getValue();
         const url = new URL("https://telegram-bot.ergouli848.workers.dev");
         url.searchParams.append("password", "lxc123");
         url.searchParams.append("word", word);
-
         const res = await fetch(url, { method: "GET" });
         if (res.ok) {
             const data = await res.json();
@@ -80,26 +97,25 @@ const fetch_word_data = async () => {
     }
 };
 
-// 高亮当前选中的单词
 const highlightWord = async () => {
-    console.log('Preparing to highlight word');
     if (!ojb.value?.word) return;
-
     try {
-        // 通过 eventManager 发送高亮事件，传递完整的单词数据
         eventManager.emit('highlight-word', {
             word: ojb.value.word,
-            wordData: ojb.value  // 传递完整的单词数据进行缓存
+            wordData: ojb.value
         });
-
-        // 关闭单词卡片
         eventManager.emit('close-word-card');
     } catch (error) {
         console.error('Error emitting highlight event:', error);
     }
 };
 
-// 播放发音
+const toggleFavorite = () => {
+    if (!ojb.value) return;
+    isFavorited.value = !isFavorited.value;
+    // 可在此处触发收藏持久化逻辑，如 eventManager.emit('favorite-word', ojb.value)
+};
+
 const playAudio = () => {
     if (!ojb.value?.word) return;
     const utter = new SpeechSynthesisUtterance(ojb.value.word);
