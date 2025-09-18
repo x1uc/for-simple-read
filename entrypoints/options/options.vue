@@ -21,7 +21,7 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
+            <div>
               <label class="label py-1">
                 <span class="label-text">API 接口地址</span>
               </label>
@@ -29,21 +29,21 @@
                 class="input input-bordered w-full" />
             </div>
 
-            <div class="form-control">
+            <div>
               <label class="label">
                 <span class="label-text py-1">SECRET KEY</span>
               </label>
               <input type="password" v-model="apiKey" placeholder="sk-xxxx" class="input w-full" />
             </div>
 
-            <div class="form-control">
+            <div>
               <label class="label">
                 <span class="label-text py-1">AI 模型</span>
               </label>
               <input type="text" v-model="model" placeholder="gpt-4o" class="input w-full" />
             </div>
 
-            <div class="form-control md:col-span-2">
+            <div class="md:col-span-2">
               <label class="label">
                 <span class="label-text py-1">Prompt</span>
               </label>
@@ -71,24 +71,21 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title">收藏设置</h2>
-          <div class="text-sm text-base-content/70">
-            这里可以放你的收藏策略、同步设置等。当前为占位卡片。
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <label class="bg-color-gray-100 label py-1">
+                有道词典生词Token
+              </label>
+              <input type="text" v-model="youdao_token" placeholder="有道云笔记 Token" class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="bg-color-gray-100 label py-1">
+                有道词典生词Token
+              </label>
+              <input type="text" v-model="youdao_token" placeholder="有道云笔记 Token" class="input input-bordered w-full" />
+            </div>
           </div>
           <div class="divider my-2"></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">是否自动收藏查过的单词</span>
-              </label>
-              <input type="checkbox" class="toggle toggle-primary" v-model="autoCollect" />
-            </div>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">最大收藏数量</span>
-              </label>
-              <input type="number" min="0" class="input input-bordered" v-model.number="collectLimit" />
-            </div>
-          </div>
           <div class="card-actions justify-end mt-2">
             <button class="btn btn-primary" @click="handleSaveCollect">
               保存收藏设置
@@ -135,7 +132,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage } from '@/libs/local_storage'
+import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage } from '@/libs/local_storage'
 import { OpenAI } from "openai";
 
 type Tab = 'ai' | 'collect'
@@ -145,14 +142,14 @@ const apiUrl = ref<string>('')
 const apiKey = ref<string>('')
 const model = ref<string>('')
 const prompt = ref<string>('')
+const youdao_token = ref<string>('')
+const eudic_token = ref<string>('')
 
 const testing = ref(false)
 const saving = ref(false)
 const message = ref<string>('')
 const messageType = ref<'success' | 'error'>('success')
 
-const autoCollect = ref<boolean>(true)
-const collectLimit = ref<number>(200)
 
 let content = ref<string>('')
 const test_question = ref<string>('你好，我想测试一下你是否可用！')
@@ -168,6 +165,8 @@ onMounted(async () => {
     apiKey.value = await ai_api_key_storage.getValue() || ''
     model.value = await ai_model_storage.getValue() || ''
     prompt.value = await ai_prompt_storage.getValue() || ''
+    youdao_token.value = await youdao_token_storage.getValue() || ''
+    eudic_token.value = await eudic_token_storage.getValue() || ''
   } catch {
     console.warn('Failed to load saved settings')
   }
