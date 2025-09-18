@@ -6,18 +6,16 @@
         <div v-else class="flex justify-between items-center">
             <div class="flex items-center justify-center">
                 <div class="text-xl font-bold">{{ ojb?.word }}</div>
-                <div @click="playAudio"
-                      class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
+                <div @click="playAudio" class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
                     {{ ojb?.pronunciation }}
-            </div>
+                </div>
             </div>
             <div class="flex items-center justify-center">
                 <!-- 高亮按钮 -->
-                <div @click="highlightWord"
-                     title="高亮"
-                     class="rounded mx-1 p-2 text-sm cursor-pointer hover:bg-gray-100 w-10 h-10 flex items-center justify-center select-none">
+                <div @click="highlightWord" title="高亮"
+                    class="rounded mx-1 p-2 text-sm cursor-pointer hover:bg-gray-100 w-10 h-10 flex items-center justify-center select-none">
                     <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M9 11l6-6 3 3-6 6H9v-3z"></path>
                         <path d="M13 5l3 3"></path>
                         <path d="M8 17h8"></path>
@@ -25,19 +23,16 @@
                     </svg>
                 </div>
                 <!-- 收藏按钮 -->
-                <div @click="toggleFavorite"
-                     title="收藏"
-                     class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
+                <div @click="collect_words" title="收藏"
+                    class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
                     <svg v-if="!isFavorited" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                         aria-hidden="true">
-                        <path
-                            d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
                     </svg>
                     <svg v-else class="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor"
-                         aria-hidden="true">
-                        <path
-                            d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                        aria-hidden="true">
+                        <path d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
                     </svg>
                 </div>
             </div>
@@ -49,6 +44,7 @@
 
 <script lang="ts" setup>
 import { inject, ref, onMounted } from 'vue';
+import { collect_word } from '@/libs/word_collector';
 
 let selected_word = inject('ojb') as any;
 let eventManager = inject('eventManager') as any;
@@ -110,10 +106,10 @@ const highlightWord = async () => {
     }
 };
 
-const toggleFavorite = () => {
+const collect_words = async () => {
     if (!ojb.value) return;
-    isFavorited.value = !isFavorited.value;
-    // 可在此处触发收藏持久化逻辑，如 eventManager.emit('favorite-word', ojb.value)
+    const result = await collect_word(ojb.value.word, "this is a test");
+    console.log(result);
 };
 
 const playAudio = () => {

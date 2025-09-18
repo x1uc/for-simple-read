@@ -15,7 +15,7 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title">AI 配置</h2>
-
+          <div class="divider"></div>
           <div v-if="message" :class="['alert', messageType === 'success' ? 'alert-success' : 'alert-error']">
             <span>{{ message }}</span>
           </div>
@@ -52,7 +52,7 @@
             </div>
           </div>
 
-          <div class="card-actions justify-end mt-2">
+          <div class="card-actions justify-end mt-2 py-2">
             <button class="btn btn-secondary" :class="{ 'btn-disabled': testing }" @click="handleTest">
               <span v-if="testing" class="loading loading-spinner loading-sm"></span>
               <span>测试 API</span>
@@ -71,24 +71,35 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title">收藏设置</h2>
+          <div class="divider"></div>
+          <div v-if="message" :class="['alert', messageType === 'success' ? 'alert-success' : 'alert-error']">
+            <span>{{ message }}</span>
+          </div>
           <div class="grid grid-cols-1 gap-4">
-            <div>
-              <label class="bg-color-gray-100 label py-1">
-                有道词典生词Token
-              </label>
-              <input type="text" v-model="youdao_token" placeholder="有道云笔记 Token" class="input input-bordered w-full" />
+            <div class="flex items-center">
+              <div class="px-2">
+                生词收藏到欧路词典生词本
+              </div>
+              <div>
+                <input type="checkbox" :checked="eudic_switch" @change="handleOpenEudicCollect" class="toggle" />
+              </div>
             </div>
-            <div>
-              <label class="bg-color-gray-100 label py-1">
-                有道词典生词Token
-              </label>
-              <input type="text" v-model="youdao_token" placeholder="有道云笔记 Token" class="input input-bordered w-full" />
+            <div v-if="eudic_switch" class="flex-1 ml-2">
+              <div>
+                <input type="text" v-model="eudic_token" placeholder="欧路词典授权信息（格式示例：NIS XXXXXXXXX）"
+                  class="input input-bordered w-full" />
+              </div>
+              <div class="my-1">
+                <a class="text-blue-300" href="https://my.eudic.net/OpenAPI/Authorization">获取欧路授权信息地址</a>
+                我的个人主页>获取授权
+              </div>
             </div>
           </div>
-          <div class="divider my-2"></div>
-          <div class="card-actions justify-end mt-2">
-            <button class="btn btn-primary" @click="handleSaveCollect">
-              保存收藏设置
+
+          <div class="card-actions justify-end mt-2 py-2">
+            <button class="btn btn-primary" :class="{ 'btn-disabled': saving }" @click="handle_save_collection">
+              <span v-if="saving" class="loading loading-spinner loading-sm"></span>
+              <span>保存设置</span>
             </button>
           </div>
         </div>
@@ -132,7 +143,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage } from '@/libs/local_storage'
+import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage, eudic_switch_storage } from '@/libs/local_storage'
 import { OpenAI } from "openai";
 
 type Tab = 'ai' | 'collect'
@@ -144,6 +155,7 @@ const model = ref<string>('')
 const prompt = ref<string>('')
 const youdao_token = ref<string>('')
 const eudic_token = ref<string>('')
+const eudic_switch = ref<boolean>(false)
 
 const testing = ref(false)
 const saving = ref(false)
@@ -167,6 +179,7 @@ onMounted(async () => {
     prompt.value = await ai_prompt_storage.getValue() || ''
     youdao_token.value = await youdao_token_storage.getValue() || ''
     eudic_token.value = await eudic_token_storage.getValue() || ''
+    eudic_switch.value = await eudic_switch_storage.getValue() || false
   } catch {
     console.warn('Failed to load saved settings')
   }
@@ -189,6 +202,23 @@ const handleSave = async () => {
     await ai_api_key_storage.setValue(apiKey.value.trim())
     await ai_model_storage.setValue(model.value.trim())
     await ai_prompt_storage.setValue(prompt.value.trim() || null)
+    notify('已保存')
+  } catch (e) {
+    notify('保存失败', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+const handle_save_collection = async () => {
+  try {
+    saving.value = true
+    if (eudic_switch.value && !eudic_token.value?.trim()) {
+      notify('请填写欧路词典授权信息', 'error')
+      return
+    }
+    await eudic_token_storage.setValue(eudic_token.value.trim() || null)
+    await eudic_switch_storage.setValue(eudic_switch.value)
     notify('已保存')
   } catch (e) {
     notify('保存失败', 'error')
@@ -236,9 +266,9 @@ const handleTest = async () => {
   }
 }
 
-const handleSaveCollect = () => {
-  // 按需持久化收藏设置
-  notify('收藏设置已保存')
+const handleOpenEudicCollect = () => {
+  eudic_switch.value = !eudic_switch.value
+  eudic_switch_storage.setValue(eudic_switch.value)
 }
 </script>
 
