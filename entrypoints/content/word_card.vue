@@ -25,7 +25,7 @@
                 <!-- 收藏按钮 -->
                 <div @click="collect_words" title="收藏"
                     class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
-                    <svg v-if="!isFavorited" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
+                    <svg v-if="!is_collected" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                         aria-hidden="true">
                         <path d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
@@ -45,6 +45,9 @@
 <script lang="ts" setup>
 import { inject, ref, onMounted } from 'vue';
 import { collect_word } from '@/libs/word_collector';
+import { WordData } from '@/libs/select_word';
+import { collection_words_storage } from '@/libs/local_storage';
+
 
 let selected_word = inject('ojb') as any;
 let eventManager = inject('eventManager') as any;
@@ -52,14 +55,8 @@ let cachedWordData = inject('cachedWordData', null) as any;
 
 let loading_flag = ref<boolean>(true);
 
-type WordData = {
-    word: string;
-    pronunciation: string;
-    meaning: string;
-};
-
 let ojb = ref<WordData | null>(null);
-const isFavorited = ref(false);
+const is_collected = ref(false);
 
 const fetch_word_data = async () => {
     try {
@@ -108,8 +105,25 @@ const highlightWord = async () => {
 
 const collect_words = async () => {
     if (!ojb.value) return;
-    const result = await collect_word(ojb.value.word, "this is a test");
-    console.log(result);
+    const collected = await f_is_collected();
+    if (!collected) {
+        return;
+    }
+    await collection_words_storage.setValue([...await collection_words_storage.getValue() || [], ojb.value]);
+    collect_word(ojb.value.word, "this is a test");
+    is_collected.value = true;
+};
+
+const f_is_collected = async () => {
+    if (!ojb.value?.word) return true;
+    try {
+        const storedWords = await collection_words_storage.getValue() || [];
+        is_collected.value = storedWords.some(item => item.word === ojb.value?.word);
+        return true;
+    } catch (error) {
+        console.error('Error checking if word is collected:', error);
+    }
+    return false;
 };
 
 const playAudio = () => {

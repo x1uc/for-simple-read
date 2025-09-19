@@ -2,11 +2,14 @@
   <div class="max-w-3xl mx-auto p-4 space-y-4">
     <!-- Tabs -->
     <div role="tablist" class="tabs tabs-boxed">
-      <a role="tab" :class="['tab', page_flag === 'ai' && 'tab-active']" @click="page_flag = 'ai'">
+      <a role="tab" :class="['tab', page_flag === 'ai' && 'tab-active']" @click="switchTab('ai')">
         AI 翻译
       </a>
-      <a role="tab" :class="['tab', page_flag === 'collect' && 'tab-active']" @click="page_flag = 'collect'">
+      <a role="tab" :class="['tab', page_flag === 'collect' && 'tab-active']" @click="switchTab('collect')">
         收藏设置
+      </a>
+      <a role="tab" :class="['tab', page_flag === 'word' && 'tab-active']" @click="switchTab('word')">
+        生词本
       </a>
     </div>
 
@@ -106,6 +109,21 @@
       </div>
     </div>
 
+    <!-- Collect Settings -->
+    <div v-else-if="page_flag === 'word'">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">收藏列表</h2>
+          <div class="divider"></div>
+          <div>
+            <div v-for="word_data of collection_words">
+              {{ word_data.word }} - {{ word_data.meaning }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 测试 API 结果弹窗 -->
     <dialog ref="testDialog" class="modal">
       <div class="modal-box max-w-2xl">
@@ -143,10 +161,11 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage, eudic_switch_storage } from '@/libs/local_storage'
+import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage } from '@/libs/local_storage'
+import { WordData } from '@/libs/select_word'
 import { OpenAI } from "openai";
 
-type Tab = 'ai' | 'collect'
+type Tab = 'ai' | 'collect' | 'word'
 const page_flag = ref<Tab>('ai')
 
 const apiUrl = ref<string>('')
@@ -156,6 +175,7 @@ const prompt = ref<string>('')
 const youdao_token = ref<string>('')
 const eudic_token = ref<string>('')
 const eudic_switch = ref<boolean>(false)
+const collection_words = ref<WordData[]>([])
 
 const testing = ref(false)
 const saving = ref(false)
@@ -173,6 +193,10 @@ const closeTestDialog = () => testDialog.value?.close()
 
 onMounted(async () => {
   try {
+    // 读取保存的tab状态，如果没读到则使用默认值 'ai'
+    const savedTab = await options_tab_storage.getValue()
+    page_flag.value = (savedTab as Tab) || 'ai'
+    
     apiUrl.value = await ai_api_url_storage.getValue() || ''
     apiKey.value = await ai_api_key_storage.getValue() || ''
     model.value = await ai_model_storage.getValue() || ''
@@ -180,10 +204,21 @@ onMounted(async () => {
     youdao_token.value = await youdao_token_storage.getValue() || ''
     eudic_token.value = await eudic_token_storage.getValue() || ''
     eudic_switch.value = await eudic_switch_storage.getValue() || false
+    collection_words.value = await collection_words_storage.getValue() || []
   } catch {
     console.warn('Failed to load saved settings')
   }
 })
+
+// 新增：切换tab并保存状态
+const switchTab = async (tab: Tab) => {
+  page_flag.value = tab
+  try {
+    await options_tab_storage.setValue(tab)
+  } catch {
+    console.warn('Failed to save tab state')
+  }
+}
 
 const notify = (msg: string, type: 'success' | 'error' = 'success') => {
   message.value = msg
