@@ -16,15 +16,66 @@ export default defineContentScript({
     let word_card_ui: any = null;
     let ai_trans_card_ui: any = null;
 
-    // 保存当前选择信息
+    // 保存当前选择信息（增加上下文信息）
     let currentSelection: {
       range: Range;
       text: string;
       position: { x: number, y: number };
+      context?: {
+        paragraphText: string;
+        sentence: string;
+        snippet: string;
+        xpath: string;
+      };
     } | null = null;
 
     // 2. 实例化事件管理器
     const eventManager = new EventManager();
+
+    // 提取选区所在段落/句子上下文
+    const getClosestContextElement = (node: Node): HTMLElement | null => {
+      let el: HTMLElement | null =
+        node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : (node.parentElement as HTMLElement | null);
+      while (el) {
+        if (el.matches?.("p, li, blockquote, pre, h1,h2,h3,h4,h5,h6, article, section")) return el;
+        const style = window.getComputedStyle(el);
+        if (style.display === "block" && (el.textContent || "").trim().length > 0) return el;
+        el = el.parentElement;
+      }
+      return null;
+    };
+
+    const extractSelectionContext = (range: Range) => {
+      const containerEl = getClosestContextElement(range.commonAncestorContainer);
+      if (!containerEl) {
+        return { paragraphText: "", sentence: "", snippet: "", xpath: "" };
+      }
+      const paragraphText = (containerEl.innerText || containerEl.textContent || "").replace(/\s+\n/g, " ").trim();
+      // 计算选区在段落中的起止位置
+      const preRange = document.createRange();
+      preRange.selectNodeContents(containerEl);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      const startIndex = preRange.toString().length;
+      const selected = range.toString();
+      const endIndex = startIndex + selected.length;
+      // 基于常见句号符号寻找句子边界
+      const marks = [".", "!", "?", "。", "！", "？", "…", ";", "；"];
+      let leftPos = -1;
+      for (const ch of marks) {
+        const pos = paragraphText.lastIndexOf(ch, Math.max(0, startIndex - 1));
+        if (pos > leftPos) leftPos = pos;
+      }
+      let rightPos = paragraphText.length;
+      for (const ch of marks) {
+        const pos = paragraphText.indexOf(ch, endIndex);
+        if (pos !== -1) rightPos = Math.min(rightPos, pos + 1);
+      }
+      const sentence = paragraphText.slice(leftPos + 1, rightPos).trim();
+      const radius = 80;
+      const snippet = paragraphText.slice(Math.max(0, startIndex - radius), Math.min(paragraphText.length, endIndex + radius)).trim();
+      const xpath = getElementXPath(containerEl);
+      return { paragraphText, sentence, snippet, xpath };
+    };
 
     const getSelectionPosition = () => {
       const selection = window.getSelection();
@@ -229,7 +280,7 @@ export default defineContentScript({
       remove_ai_trans_card_ui();
     });
 
-    // 添加高亮事件监听器
+    // 添加高亮事件监听器（把上下文合并进 wordData 里）
     eventManager.on('highlight-word', async (data: { word: string; wordData?: any }) => {
       try {
         if (!currentSelection) {
@@ -237,19 +288,21 @@ export default defineContentScript({
           return;
         }
 
-        const { range, text } = currentSelection;
-        
-        // 确保选中的文本与要高亮的单词匹配
+        const { range, text, context } = currentSelection;
+
         if (text.toLowerCase() !== data.word.toLowerCase()) {
           console.warn('Selected text does not match word to highlight');
           return;
         }
-        
-        // 获取文本节点和偏移量
+
         const startContainer = range.startContainer;
         const startOffset = range.startOffset;
-        
-        // 创建高亮数据，包含缓存的单词详细信息
+
+        const wordDataWithContext = {
+          ...(data.wordData || {}),
+          context: context || null, // 段落文本/句子/片段 + xpath
+        };
+
         const highlightData: HighlightData = {
           id: generateHighlightId(),
           word: text,
@@ -259,15 +312,11 @@ export default defineContentScript({
           xpath: getElementXPath(startContainer),
           offset: startOffset,
           length: text.length,
-          wordData: data.wordData // 保存单词详细信息
+          wordData: wordDataWithContext
         };
-        
-        // 保存到存储
+
         await HighlightStorage.saveHighlight(highlightData);
-        
-        // 重新渲染高亮
         HighlightRenderer.renderHighlights();
-        
         console.log('Word highlighted successfully:', highlightData);
       } catch (error) {
         console.error('Error highlighting word:', error);
@@ -298,12 +347,15 @@ export default defineContentScript({
         
         const position = getSelectionPosition();
         if (position) {
-          // 保存当前选择信息
+          // 保存当前选择信息（加入上下文）
           if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0).cloneRange();
+            const context = extractSelectionContext(range);
             currentSelection = {
-              range: selection.getRangeAt(0).cloneRange(),
+              range,
               text: selectedText,
-              position: position
+              position: position,
+              context
             };
           }
           
