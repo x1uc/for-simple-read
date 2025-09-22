@@ -106,7 +106,7 @@ const highlightWord = async () => {
 const collect_words = async () => {
     if (!ojb.value) return;
     const collected = await f_is_collected();
-    if (!collected) {
+    if (collected) {
         return;
     }
     await collection_words_storage.setValue([...await collection_words_storage.getValue() || [], ojb.value]);
@@ -119,7 +119,10 @@ const f_is_collected = async () => {
     try {
         const storedWords = await collection_words_storage.getValue() || [];
         is_collected.value = storedWords.some(item => item.word === ojb.value?.word);
-        return true;
+        // if already collected, return true
+        if (is_collected.value) {
+            return true;
+        }
     } catch (error) {
         console.error('Error checking if word is collected:', error);
     }
