@@ -1,4 +1,4 @@
-export const select_word_storage = storage.defineItem<string | null>("local:select_word"); 
+export const select_word_storage = storage.defineItem<SelectInfo | null>("local:select_word"); 
 
 
 export type WordData = {
@@ -6,3 +6,8 @@ export type WordData = {
     pronunciation: string;
     meaning: string;
 };
+
+export type SelectInfo = {
+    context: string;
+    word: string;
+}
