@@ -70,7 +70,7 @@ const ai_trans = async () => {
         stream: true,
         messages: [
             { "role": "system", "content": cur_prompt },
-            { "role": "user", "content": trans_p }
+            { "role": "user", "content": trans_p.word }
         ]
     });
     for await (const chunk of stream) {
