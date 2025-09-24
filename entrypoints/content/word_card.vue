@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        <div class="py-2 text-sm text-justify" v-html="ojb?.meaning.replace(/\n/g, '<br>')"></div>
+        <div class="py-2 text-sm text-justify" v-html="ojb?.meaning"></div>
     </div>
 </template>
 
@@ -47,7 +47,7 @@ import { inject, ref, onMounted } from 'vue';
 import { OpenAI } from "openai";
 import { collect_word } from '@/libs/word_collector';
 import { WordData } from '@/libs/select_word';
-import { ai_api_key_storage, ai_api_url_storage, ai_model_storage, ai_prompt_storage, collection_words_storage } from "@/libs/local_storage";
+import { ai_api_key_storage, ai_api_url_storage, ai_word_model_storage, ai_prompt_storage, collection_words_storage } from "@/libs/local_storage";
 
 
 let selected_word = inject('ojb') as any;
@@ -94,7 +94,7 @@ const ai_trans = async () => {
         return;
     }
     const cur_api_url = await ai_api_url_storage.getValue();
-    const cur_model = await ai_model_storage.getValue();
+    const cur_model = await ai_word_model_storage.getValue();
     const cur_api_key = await ai_api_key_storage.getValue();
     const cur_prompt = await ai_prompt_storage.getValue() || default_prompt;
     const openai = new OpenAI({
@@ -136,7 +136,7 @@ const check_api_config = async () => {
         };
         return false;
     }
-    if (!await ai_model_storage.getValue()) {
+    if (!await ai_word_model_storage.getValue()) {
         ojb.value = {
             word: "Error",
             pronunciation: "",

@@ -41,9 +41,16 @@
 
             <div>
               <label class="label">
-                <span class="label-text py-1">AI 模型</span>
+                <span class="label-text py-1">AI 模型（翻译用）</span>
               </label>
               <input type="text" v-model="model" placeholder="gpt-4o" class="input w-full" />
+            </div>
+            
+            <div>
+              <label class="label">
+                <span class="label-text py-1">AI 模型（查词用）</span>
+              </label>
+              <input type="text" v-model="word_model" placeholder="gpt-4o" class="input w-full" />
             </div>
 
             <div class="md:col-span-2">
@@ -161,7 +168,10 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_prompt_storage, youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage } from '@/libs/local_storage'
+import {
+  ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_word_model_storage, ai_prompt_storage,
+  youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage
+} from '@/libs/local_storage'
 import { WordData } from '@/libs/select_word'
 import { OpenAI } from "openai";
 
@@ -172,6 +182,7 @@ const apiUrl = ref<string>('')
 const apiKey = ref<string>('')
 const model = ref<string>('')
 const prompt = ref<string>('')
+const word_model = ref<string>('')
 const youdao_token = ref<string>('')
 const eudic_token = ref<string>('')
 const eudic_switch = ref<boolean>(false)
@@ -200,6 +211,7 @@ onMounted(async () => {
     apiUrl.value = await ai_api_url_storage.getValue() || ''
     apiKey.value = await ai_api_key_storage.getValue() || ''
     model.value = await ai_model_storage.getValue() || ''
+    word_model.value = await ai_word_model_storage.getValue() || ''
     prompt.value = await ai_prompt_storage.getValue() || ''
     youdao_token.value = await youdao_token_storage.getValue() || ''
     eudic_token.value = await eudic_token_storage.getValue() || ''
@@ -229,13 +241,14 @@ const notify = (msg: string, type: 'success' | 'error' = 'success') => {
 const handleSave = async () => {
   try {
     saving.value = true
-    if (!apiUrl.value?.trim() || !apiKey.value?.trim() || !model.value?.trim()) {
-      notify('请填写 API 接口地址', 'error')
+    if (!apiUrl.value?.trim() || !apiKey.value?.trim() || !model.value?.trim() || !word_model.value?.trim()) {
+      notify('请填写 API 调用信息', 'error')
       return
     }
     await ai_api_url_storage.setValue(apiUrl.value.trim())
     await ai_api_key_storage.setValue(apiKey.value.trim())
     await ai_model_storage.setValue(model.value.trim())
+    await ai_word_model_storage.setValue(word_model.value.trim() || null)
     await ai_prompt_storage.setValue(prompt.value.trim() || null)
     notify('已保存')
   } catch (e) {
