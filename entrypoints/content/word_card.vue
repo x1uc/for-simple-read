@@ -44,9 +44,10 @@
 
 <script lang="ts" setup>
 import { inject, ref, onMounted } from 'vue';
+import { OpenAI } from "openai";
 import { collect_word } from '@/libs/word_collector';
 import { WordData } from '@/libs/select_word';
-import { collection_words_storage } from '@/libs/local_storage';
+import { ai_api_key_storage, ai_api_url_storage, ai_model_storage, ai_prompt_storage, collection_words_storage } from "@/libs/local_storage";
 
 
 let selected_word = inject('ojb') as any;
@@ -58,36 +59,92 @@ let loading_flag = ref<boolean>(true);
 let ojb = ref<WordData | null>(null);
 const is_collected = ref(false);
 
-const fetch_word_data = async () => {
-    try {
-        if (cachedWordData) {
-            console.log('Using cached word data:', cachedWordData);
-            ojb.value = {
-                word: cachedWordData.word,
-                pronunciation: cachedWordData.pronunciation,
-                meaning: cachedWordData.meaning
-            };
-            loading_flag.value = false;
-            return;
-        }
-        const word = await selected_word.getValue();
-        const url = new URL("https://telegram-bot.ergouli848.workers.dev");
-        url.searchParams.append("password", "lxc123");
-        url.searchParams.append("word", word);
-        const res = await fetch(url, { method: "GET" });
-        if (res.ok) {
-            const data = await res.json();
-            ojb.value = {
-                word: data.word,
-                pronunciation: '/' + data.pronunciation + '/',
-                meaning: data.meaning
-            };
-        }
-    } catch (error) {
-        console.error("Error fetching word data:", error);
-    } finally {
+const default_prompt =
+    `
+You are an assistant that extracts dictionary-like information.
+
+I will give you a word and its context.  
+Return the result strictly as a JSON object with the following TypeScript type:
+
+export type WordData = {
+    word: string;
+    pronunciation: string;
+    meaning: string;
+};
+
+Rules:
+- Do not include anything outside the JSON.
+- "word": exactly the given word.
+- "pronunciation": return the phonetic transcription in IPA if possible (e.g., "/wɜːd/"), otherwise leave it as an empty string.
+- "meaning": give the chinese meaning of the word in the provided context, concise but clear.just the word meaning, don't include context, this is important.
+`
+
+const ai_trans = async () => {
+    if (!await check_api_config()) {
         loading_flag.value = false;
+        return;
     }
+    if (cachedWordData) {
+        ojb.value = {
+            word: cachedWordData.word,
+            pronunciation: cachedWordData.pronunciation,
+            meaning: cachedWordData.meaning
+        };
+        loading_flag.value = false;
+        return;
+    }
+    const cur_api_url = await ai_api_url_storage.getValue();
+    const cur_model = await ai_model_storage.getValue();
+    const cur_api_key = await ai_api_key_storage.getValue();
+    const cur_prompt = await ai_prompt_storage.getValue() || default_prompt;
+    const openai = new OpenAI({
+        apiKey: cur_api_key!,
+        baseURL: cur_api_url!,
+        dangerouslyAllowBrowser: true
+    });
+    const word_info = await selected_word.getValue();
+    console.log("Selected word info:", word_info.word, word_info.context);
+    const response = await openai.chat.completions.create({
+        model: cur_model!,
+        messages: [
+            { "role": "system", "content": cur_prompt },
+            { "role": "user", "content": `Word: ${word_info.word} Context: ${word_info.context}` }
+        ],
+        response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0].message.content;
+    const word_obj = JSON.parse(content!) as WordData;
+    ojb.value = word_obj;
+    loading_flag.value = false;
+}
+
+const check_api_config = async () => {
+    if (!await ai_api_key_storage.getValue()) {
+        ojb.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    if (!await ai_api_url_storage.getValue()) {
+        ojb.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    if (!await ai_model_storage.getValue()) {
+        ojb.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    return true;
 };
 
 const highlightWord = async () => {
@@ -110,7 +167,8 @@ const collect_words = async () => {
         return;
     }
     await collection_words_storage.setValue([...await collection_words_storage.getValue() || [], ojb.value]);
-    collect_word(ojb.value.word, "this is a test");
+    const word_info = await selected_word.getValue();
+    collect_word(word_info.word, word_info.context);
     is_collected.value = true;
 };
 
@@ -137,6 +195,6 @@ const playAudio = () => {
 };
 
 onMounted(() => {
-    fetch_word_data();
+    ai_trans();
 });
 </script>

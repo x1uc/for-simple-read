@@ -342,9 +342,8 @@ export default defineContentScript({
 
       const selection = window.getSelection();
       if (selection && selection.toString().trim()) {
+
         const selectedText = selection.toString().trim();
-        select_word_storage.setValue(selectedText);
-        
         const position = getSelectionPosition();
         if (position) {
           // 保存当前选择信息（加入上下文）
@@ -358,10 +357,16 @@ export default defineContentScript({
               context
             };
           }
-          
+
           await ensure_popup_thumb(position);
           popup_thumb_ui.mount();
         }
+
+        select_word_storage.setValue({
+          word: selectedText,
+          context: currentSelection?.context?.sentence || ""
+        });
+        
       } else {
         // 清除选择信息
         currentSelection = null;
