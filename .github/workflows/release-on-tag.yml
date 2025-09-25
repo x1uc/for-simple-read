@@ -1,0 +1,63 @@
+name: Release on tag
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"    # push tags like v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Package builds
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          
+          # Chromium 版本包
+          pnpm run zip
+          mv .output/*.zip "artifacts/for-read-simple-chromium-${{ github.ref_name }}.zip"
+          
+          # Firefox 版本包
+          pnpm run zip:firefox
+          mv .output/*-firefox.zip "artifacts/for-read-simple-firefox-${{ github.ref_name }}.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.ref_name }}
+          path: artifacts/*.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          files: artifacts/*.zip
