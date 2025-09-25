@@ -2,8 +2,6 @@ name: Release on tag
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"    # push tags like v1.0.0
 
