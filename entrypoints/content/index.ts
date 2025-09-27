@@ -15,6 +15,8 @@ export default defineContentScript({
     let popup_thumb_ui: any = null;
     let word_card_ui: any = null;
     let ai_trans_card_ui: any = null;
+    let isAiTransCardPinned = false;
+    let aiTransCardPosition: { left: number; top: number } | null = null;
 
     // 保存当前选择信息（增加上下文信息）
     let currentSelection: {
@@ -31,6 +33,7 @@ export default defineContentScript({
 
     // 2. 实例化事件管理器
     const eventManager = new EventManager();
+
 
     // 提取选区所在段落/句子上下文
     const getClosestContextElement = (node: Node): HTMLElement | null => {
@@ -93,6 +96,16 @@ export default defineContentScript({
         centerY: rect.top + window.scrollY + rect.height / 2,
       };
     };
+
+    const applyAiTransCardPosition = (left: number, top: number) => {
+      if (!ai_trans_card_ui) return;
+      const container = ai_trans_card_ui.uiContainer;
+      if (!container) return;
+      container.style.position = 'fixed';
+      container.style.left = `${left}px`;
+      container.style.top = `${top}px`;
+    };
+
 
     const ensure_popup_thumb = async (position: { x: number, y: number }) => {
       if (!popup_thumb_ui) {
@@ -195,16 +208,27 @@ export default defineContentScript({
     };
 
     const ensure_ai_trans_card = async (position: { x: number, y: number }) => {
+      const toViewportPosition = ({ x, y }: { x: number; y: number }) => ({
+        left: x - window.scrollX,
+        top: y - window.scrollY,
+      });
+
+      const desiredPosition = (isAiTransCardPinned && aiTransCardPosition)
+        ? aiTransCardPosition
+        : toViewportPosition(position);
+
+      aiTransCardPosition = { ...desiredPosition };
+
       if (!ai_trans_card_ui) {
+        const initialPosition = { ...desiredPosition };
         ai_trans_card_ui = await createShadowRootUi(ctx, {
           name: 'ai-trans-card',
           position: 'overlay',
           anchor: 'body',
           onMount(container) {
-            // 设置容器的绝对定位
-            container.style.position = 'absolute';
-            container.style.left = `${position.x}px`;
-            container.style.top = `${position.y}px`;
+            container.style.position = 'fixed';
+            container.style.left = `${initialPosition.left}px`;
+            container.style.top = `${initialPosition.top}px`;
             container.style.zIndex = '10000';
             container.style.pointerEvents = 'auto';
 
@@ -219,8 +243,15 @@ export default defineContentScript({
             app?.unmount();
           },
         });
+      } else if (!isAiTransCardPinned) {
+        applyAiTransCardPosition(desiredPosition.left, desiredPosition.top);
       }
+
       ai_trans_card_ui.mount();
+      if (aiTransCardPosition) {
+        applyAiTransCardPosition(aiTransCardPosition.left, aiTransCardPosition.top);
+      }
+      eventManager.emit('ai-trans-card-apply-pin', isAiTransCardPinned);
     };
 
     // 函数：移除选择框
@@ -240,10 +271,14 @@ export default defineContentScript({
     };
 
     // 函数：移除AI翻译卡片UI
-    const remove_ai_trans_card_ui = () => {
+    const remove_ai_trans_card_ui = ({ force = false }: { force?: boolean } = {}) => {
+      if (isAiTransCardPinned && !force) {
+        return;
+      }
       if (ai_trans_card_ui) {
         ai_trans_card_ui.remove();
         ai_trans_card_ui = null;
+        aiTransCardPosition = null;
       }
     }
 
@@ -276,8 +311,24 @@ export default defineContentScript({
       remove_word_card_ui();
     });
 
+    eventManager.on('ai-trans-card-pin-state-change', (pinned: boolean) => {
+      isAiTransCardPinned = !!pinned;
+      eventManager.emit('ai-trans-card-apply-pin', isAiTransCardPinned);
+    });
+
+    eventManager.on('ai-trans-card-position-change', (data: { left: number; top: number; dragging: boolean }) => {
+      if (!data || typeof data.left !== 'number' || typeof data.top !== 'number') {
+        return;
+      }
+      aiTransCardPosition = { left: data.left, top: data.top };
+      applyAiTransCardPosition(data.left, data.top);
+    });
+
     eventManager.on('close-ai-trans-card', () => {
-      remove_ai_trans_card_ui();
+      isAiTransCardPinned = false;
+      aiTransCardPosition = null;
+      eventManager.emit('ai-trans-card-apply-pin', false);
+      remove_ai_trans_card_ui({ force: true });
     });
 
     // 添加高亮事件监听器（把上下文合并进 wordData 里）
@@ -366,7 +417,7 @@ export default defineContentScript({
           word: selectedText,
           context: currentSelection?.context?.sentence || ""
         });
-        
+
       } else {
         // 清除选择信息
         currentSelection = null;
