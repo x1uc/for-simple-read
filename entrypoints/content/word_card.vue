@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-[420px] min-h-[60px] p-3 text-black">
+    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-100 min-h-15 p-3 text-black">
         <div v-if="loading_flag" class="items-center justify-center flex h-full py-2">
             <div class="loading loading-dots lodding-sm"></div>
         </div>

@@ -161,7 +161,7 @@ export class HighlightRenderer {
               });
             } else {
               // 没有缓存数据，使用原来的方式
-              select_word_storage.setValue(word);
+              select_word_storage.setValue({ word, context: '' });
               // 创建一个虚拟的选择来获取位置
               const range = document.createRange();
               range.selectNodeContents(target);
@@ -175,7 +175,7 @@ export class HighlightRenderer {
           } catch (error) {
             console.error('Error handling highlight click:', error);
             // 出错时回退到原来的方式
-            select_word_storage.setValue(word);
+            select_word_storage.setValue({ word: word || '', context: '' });
             eventManager.emit('show-word-card');
           }
         }
