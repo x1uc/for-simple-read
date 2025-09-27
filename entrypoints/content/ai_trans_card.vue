@@ -1,17 +1,32 @@
 <template>
-    <div class="bg-white border border-gray-200 rounded-xl shadow-lg w-100 min-h-40 max-h-100 text-black overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-1 bg-gray-50 border-b border-gray-100">
+    <div ref="cardRef" :class="['bg-white border border-gray-200 rounded-xl shadow-lg w-100 min-h-40 max-h-100 text-black overflow-hidden']">
+        <div class="flex items-center justify-between px-4 py-1 bg-gray-50 border-b border-gray-100 select-none"
+            :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'" @pointerdown="onPointerDown">
             <div>
                 AI 翻译
             </div>
-            <button
-                class="flex items-center justify-center w-8 h-8 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-colors"
-                type="button" @click="eventManager.emit('close-ai-trans-card')">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-            </button>
+            <div class="flex">
+                <button class="flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+                    :class="isPinned ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'"
+                    type="button" :aria-pressed="isPinned" :title="isPinned ? '取消置顶' : '置顶卡片'" @click.stop="togglePin">
+                    <svg class="w-5 h-5" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.925 40.979L7.52399 56.381" :stroke="isPinned ? 'currentColor' : '#374151'"
+                            stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                        <path
+                            d="M14.599 32.653L31.252 49.306C31.5821 49.6361 32.0024 49.8613 32.46 49.9534C32.9177 50.0454 33.3923 50.0002 33.8244 49.8234C34.2564 49.6466 34.6266 49.346 34.8884 48.9596C35.1502 48.5731 35.292 48.1179 35.296 47.6511L35.344 42.0791C35.3473 41.705 35.4392 41.337 35.6119 41.0053C35.7847 40.6735 36.0335 40.3873 36.338 40.1701L54.53 27.2031C54.8095 27.0031 55.0421 26.7447 55.2118 26.4459C55.3815 26.1471 55.4842 25.8149 55.5127 25.4724C55.5412 25.13 55.495 24.7854 55.3771 24.4626C55.2592 24.1398 55.0725 23.8465 54.83 23.6031L40.306 9.07505C40.0625 8.83253 39.7692 8.64585 39.4464 8.52797C39.1236 8.41008 38.7791 8.3638 38.4366 8.39234C38.0941 8.42088 37.762 8.52355 37.4632 8.69324C37.1643 8.86293 36.906 9.09558 36.706 9.37505L23.738 27.5671C23.521 27.8716 23.235 28.1205 22.9034 28.2932C22.5718 28.466 22.2039 28.5578 21.83 28.5611L16.258 28.6091C15.7909 28.6122 15.3351 28.7535 14.948 29.015C14.5609 29.2765 14.2598 29.6467 14.0825 30.0789C13.9052 30.5111 13.8596 30.986 13.9515 31.4441C14.0434 31.9021 14.2687 32.3227 14.599 32.653V32.653Z"
+                            stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <button
+                    class="flex items-center justify-center w-8 h-8 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-colors"
+                    type="button" title="关闭卡片" @click.stop="closeCard">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
         </div>
         <div v-if="!content" class="flex flex-col items-center justify-center gap-3 py-10 text-gray-500">
             <div class="loading loading-dots lodding-sm"></div>
@@ -25,7 +40,7 @@
 
 <script lang="ts" setup>
 import { OpenAI } from "openai";
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { ai_api_key_storage, ai_api_url_storage, ai_model_storage, ai_prompt_storage } from "@/libs/local_storage";
 
 let selected_word = inject('ojb') as any;
@@ -34,6 +49,104 @@ let eventManager = inject('eventManager') as any;
 
 const content = ref<string>('');
 const formattedContent = computed(() => content.value.replace(/\n/g, '<br>'));
+const cardRef = ref<HTMLElement | null>(null);
+const isDragging = ref(false);
+const isPinned = ref(false);
+
+let pointerStartX = 0;
+let pointerStartY = 0;
+let dragStartLeft = 0;
+let dragStartTop = 0;
+let lastPositionLeft = 0;
+let lastPositionTop = 0;
+
+const onPointerMove = (event: PointerEvent) => {
+    if (!isDragging.value) {
+        return;
+    }
+
+    const deltaX = event.clientX - pointerStartX;
+    const deltaY = event.clientY - pointerStartY;
+
+    lastPositionLeft = dragStartLeft + deltaX;
+    lastPositionTop = dragStartTop + deltaY;
+
+    eventManager?.emit?.('ai-trans-card-position-change', {
+        left: lastPositionLeft,
+        top: lastPositionTop,
+        dragging: true
+    });
+};
+
+const stopDragging = () => {
+    if (!isDragging.value) {
+        return;
+    }
+
+    isDragging.value = false;
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', stopDragging);
+    window.removeEventListener('pointercancel', stopDragging);
+
+    const finalLeft = lastPositionLeft || dragStartLeft;
+    const finalTop = lastPositionTop || dragStartTop;
+
+    eventManager?.emit?.('ai-trans-card-position-change', {
+        left: finalLeft,
+        top: finalTop,
+        dragging: false
+    });
+};
+
+const onPointerDown = (event: PointerEvent) => {
+    if (event.button !== 0) {
+        return;
+    }
+
+    if ((event.target as HTMLElement | null)?.closest('button')) {
+        return;
+    }
+
+    event.preventDefault();
+
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
+
+    const rect = cardRef.value?.getBoundingClientRect();
+    dragStartLeft = rect?.left || 0;
+    dragStartTop = rect?.top || 0;
+    lastPositionLeft = dragStartLeft;
+    lastPositionTop = dragStartTop;
+
+    isDragging.value = true;
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', stopDragging);
+    window.addEventListener('pointercancel', stopDragging);
+
+    eventManager?.emit?.('ai-trans-card-position-change', {
+        left: dragStartLeft,
+        top: dragStartTop,
+        dragging: true
+    });
+};
+
+const togglePin = () => {
+    isPinned.value = !isPinned.value;
+    eventManager?.emit?.('ai-trans-card-pin-state-change', isPinned.value);
+};
+
+const closeCard = () => {
+    if (isPinned.value) {
+        isPinned.value = false;
+        eventManager?.emit?.('ai-trans-card-pin-state-change', false);
+    }
+    eventManager?.emit?.('close-ai-trans-card');
+};
+
+const handlePinSync = (pinned: boolean) => {
+    isPinned.value = !!pinned;
+};
 
 const default_prompt =
     `
@@ -104,6 +217,12 @@ const check_api_config = async () => {
 
 onMounted(() => {
     ai_trans();
+    eventManager?.on?.('ai-trans-card-apply-pin', handlePinSync);
+});
+
+onBeforeUnmount(() => {
+    stopDragging();
+    eventManager?.off?.('ai-trans-card-apply-pin', handlePinSync);
 });
 
 </script>
