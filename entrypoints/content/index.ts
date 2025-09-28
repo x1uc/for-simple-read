@@ -202,7 +202,7 @@ export default defineContentScript({
             const app = createApp(word_card);
             // 同样注入 eventManager
             app.provide('eventManager', eventManager);
-            app.provide('ojb', select_word_storage);
+            app.provide('selectedWord', select_word_storage);
             app.mount(container);
             return app;
           },
@@ -238,7 +238,7 @@ export default defineContentScript({
             const app = createApp(word_card);
             // 注入 eventManager 和缓存的单词数据
             app.provide('eventManager', eventManager);
-            app.provide('ojb', cached_word_storage);
+            app.provide('selectedWord', cached_word_storage);
             app.provide('cachedWordData', wordData); // 提供缓存的数据
             app.mount(container);
             return app;
@@ -279,7 +279,7 @@ export default defineContentScript({
             const app = createApp(ai_trans_card);
 
             app.provide('eventManager', eventManager);
-            app.provide('ojb', select_word_storage);
+            app.provide('selectedWord', select_word_storage);
             app.mount(container);
             return app;
           },
