@@ -5,9 +5,9 @@
         </div>
         <div v-else class="flex justify-between items-center">
             <div class="flex items-center justify-center">
-                <div class="text-xl font-bold">{{ ojb?.word }}</div>
+                <div class="text-xl font-bold">{{ wordData?.word }}</div>
                 <div @click="playAudio" class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
-                    {{ ojb?.pronunciation }}
+                    {{ wordData?.pronunciation }}
                 </div>
             </div>
             <div class="flex items-center justify-center">
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        <div class="py-2 text-sm text-justify" v-html="ojb?.meaning"></div>
+        <div class="py-2 text-sm text-justify" v-html="wordData?.meaning"></div>
     </div>
 </template>
 
@@ -49,14 +49,13 @@ import { collect_word } from '@/libs/word_collector';
 import { WordData } from '@/libs/select_word';
 import { ai_api_key_storage, ai_api_url_storage, ai_word_model_storage, ai_prompt_storage, collection_words_storage } from "@/libs/local_storage";
 
-
-let selected_word = inject('ojb') as any;
+let selected_word = inject('wordData') as any;
 let eventManager = inject('eventManager') as any;
 let cachedWordData = inject('cachedWordData', null) as any;
 
 let loading_flag = ref<boolean>(true);
 
-let ojb = ref<WordData | null>(null);
+let wordData = ref<WordData | null>(null);
 const is_collected = ref(false);
 
 const default_prompt =
@@ -79,13 +78,41 @@ Rules:
 - "meaning": give the chinese meaning of the word in the provided context, concise but clear.just the word meaning, don't include context, this is important.
 `
 
+const check_api_config = async () => {
+    if (!await ai_api_key_storage.getValue()) {
+        wordData.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    if (!await ai_api_url_storage.getValue()) {
+        wordData.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    if (!await ai_word_model_storage.getValue()) {
+        wordData.value = {
+            word: "Error",
+            pronunciation: "",
+            meaning: "Please set your OpenAI API key in the settings."
+        };
+        return false;
+    }
+    return true;
+};
+
 const ai_trans = async () => {
     if (!await check_api_config()) {
         loading_flag.value = false;
         return;
     }
     if (cachedWordData) {
-        ojb.value = {
+        wordData.value = {
             word: cachedWordData.word,
             pronunciation: cachedWordData.pronunciation,
             meaning: cachedWordData.meaning
@@ -115,44 +142,16 @@ const ai_trans = async () => {
 
     const content = response.choices[0].message.content;
     const word_obj = JSON.parse(content!) as WordData;
-    ojb.value = word_obj;
+    wordData.value = word_obj;
     loading_flag.value = false;
 }
 
-const check_api_config = async () => {
-    if (!await ai_api_key_storage.getValue()) {
-        ojb.value = {
-            word: "Error",
-            pronunciation: "",
-            meaning: "Please set your OpenAI API key in the settings."
-        };
-        return false;
-    }
-    if (!await ai_api_url_storage.getValue()) {
-        ojb.value = {
-            word: "Error",
-            pronunciation: "",
-            meaning: "Please set your OpenAI API key in the settings."
-        };
-        return false;
-    }
-    if (!await ai_word_model_storage.getValue()) {
-        ojb.value = {
-            word: "Error",
-            pronunciation: "",
-            meaning: "Please set your OpenAI API key in the settings."
-        };
-        return false;
-    }
-    return true;
-};
-
 const highlightWord = async () => {
-    if (!ojb.value?.word) return;
+    if (!wordData.value?.word) return;
     try {
         eventManager.emit('highlight-word', {
-            word: ojb.value.word,
-            wordData: ojb.value
+            word: wordData.value.word,
+            wordData: wordData.value
         });
         eventManager.emit('close-word-card');
     } catch (error) {
@@ -161,23 +160,22 @@ const highlightWord = async () => {
 };
 
 const collect_words = async () => {
-    if (!ojb.value) return;
+    if (!wordData.value) return;
     const collected = await f_is_collected();
     if (collected) {
         return;
     }
-    await collection_words_storage.setValue([...await collection_words_storage.getValue() || [], ojb.value]);
+    await collection_words_storage.setValue([...await collection_words_storage.getValue() || [], wordData.value]);
     const word_info = await selected_word.getValue();
     collect_word(word_info.word, word_info.context);
     is_collected.value = true;
 };
 
 const f_is_collected = async () => {
-    if (!ojb.value?.word) return true;
+    if (!wordData.value?.word) return true;
     try {
         const storedWords = await collection_words_storage.getValue() || [];
-        is_collected.value = storedWords.some(item => item.word === ojb.value?.word);
-        // if already collected, return true
+        is_collected.value = storedWords.some(item => item.word === wordData.value?.word);
         if (is_collected.value) {
             return true;
         }
@@ -188,8 +186,8 @@ const f_is_collected = async () => {
 };
 
 const playAudio = () => {
-    if (!ojb.value?.word) return;
-    const utter = new SpeechSynthesisUtterance(ojb.value.word);
+    if (!wordData.value?.word) return;
+    const utter = new SpeechSynthesisUtterance(wordData.value.word);
     utter.lang = "en-US";
     speechSynthesis.speak(utter);
 };
