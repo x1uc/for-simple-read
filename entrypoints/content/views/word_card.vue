@@ -49,7 +49,7 @@ import { collect_word } from '@/libs/word_collector';
 import { WordData } from '@/libs/select_word';
 import { ai_api_key_storage, ai_api_url_storage, ai_word_model_storage, ai_prompt_storage, collection_words_storage } from "@/libs/local_storage";
 
-let selected_word = inject('wordData') as any;
+let selected_word = inject('selectedWord') as any;
 let eventManager = inject('eventManager') as any;
 let cachedWordData = inject('cachedWordData', null) as any;
 
