@@ -1,8 +1,8 @@
 import "../../assets/tailwind.css";
 import { createApp } from "vue";
-import popup_thumb from "@/entrypoints/content/popup_thumb.vue";
-import word_card from "@/entrypoints/content/word_card.vue"; // 引入 word_card 组件
-import ai_trans_card from "@/entrypoints/content/ai_trans_card.vue";
+import popup_thumb from "@/entrypoints/content/views/popup_thumb.vue";
+import word_card from "@/entrypoints/content/views/word_card.vue"; // 引入 word_card 组件
+import ai_trans_card from "@/entrypoints/content/views/ai_trans_card.vue";
 import { select_word_storage } from "@/libs/select_word";
 import { HighlightStorage, generateHighlightId, getElementXPath, type HighlightData } from "@/libs/highlight_storage";
 import { EventManager } from "@/libs/event_manager";
