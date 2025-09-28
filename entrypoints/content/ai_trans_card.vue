@@ -1,5 +1,5 @@
 <template>
-    <div ref="cardRef" :class="['bg-white border border-gray-200 rounded-xl shadow-lg w-100 min-h-40 max-h-100 text-black overflow-hidden']">
+    <div ref="cardRef" class="bg-white border border-gray-200 rounded-xl shadow-lg w-100 min-h-40 max-h-100 text-black overflow-hidden">
         <div class="flex items-center justify-between px-4 py-1 bg-gray-50 border-b border-gray-100 select-none"
             :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'" @pointerdown="onPointerDown">
             <div>

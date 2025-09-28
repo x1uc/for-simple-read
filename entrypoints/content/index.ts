@@ -12,6 +12,50 @@ export default defineContentScript({
   matches: ['<all_urls>'],
   cssInjectionMode: 'ui',
   async main(ctx) {
+    // 核心触发代码：监听用户选择文本动作
+    document.addEventListener("mouseup", async (e) => {
+      // 如果点击的是UI内部，则不处理
+      if ((e.target as HTMLElement).closest('[data-wxt-shadow-root]')) {
+        return;
+      }
+
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+
+        const selectedText = selection.toString().trim();
+        const position = getSelectionPosition();
+        if (position) {
+          // 保存当前选择信息（加入上下文）
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0).cloneRange();
+            const context = extractSelectionContext(range);
+            currentSelection = {
+              range,
+              text: selectedText,
+              position: position,
+              context
+            };
+          }
+
+          await ensure_popup_thumb(position);
+          popup_thumb_ui.mount();
+        }
+
+        select_word_storage.setValue({
+          word: selectedText,
+          context: currentSelection?.context?.sentence || ""
+        });
+
+      } else {
+        // 清除选择信息
+        currentSelection = null;
+        remove_thumb_ui();
+        remove_word_card_ui(); // 同时移除单词卡
+        remove_ai_trans_card_ui(); // 同时移除AI翻译卡
+      }
+    });
+
+    //--------------代码逻辑--------------------------
     let popup_thumb_ui: any = null;
     let word_card_ui: any = null;
     let ai_trans_card_ui: any = null;
@@ -385,47 +429,6 @@ export default defineContentScript({
       HighlightRenderer.addHighlightClickListeners(eventManager);
     }, 1000); // 延迟1秒确保页面完全加载
 
-    document.addEventListener("mouseup", async (e) => {
-      // 如果点击的是UI内部，则不处理
-      if ((e.target as HTMLElement).closest('[data-wxt-shadow-root]')) {
-        return;
-      }
-
-      const selection = window.getSelection();
-      if (selection && selection.toString().trim()) {
-
-        const selectedText = selection.toString().trim();
-        const position = getSelectionPosition();
-        if (position) {
-          // 保存当前选择信息（加入上下文）
-          if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0).cloneRange();
-            const context = extractSelectionContext(range);
-            currentSelection = {
-              range,
-              text: selectedText,
-              position: position,
-              context
-            };
-          }
-
-          await ensure_popup_thumb(position);
-          popup_thumb_ui.mount();
-        }
-
-        select_word_storage.setValue({
-          word: selectedText,
-          context: currentSelection?.context?.sentence || ""
-        });
-
-      } else {
-        // 清除选择信息
-        currentSelection = null;
-        remove_thumb_ui();
-        remove_word_card_ui(); // 同时移除单词卡
-        remove_ai_trans_card_ui(); // 同时移除AI翻译卡
-      }
-    });
   },
 });
 
