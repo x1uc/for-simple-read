@@ -29,13 +29,35 @@
             </div>
 
         </div>
-        <div v-if="!content" class="flex flex-col items-center justify-center gap-3 py-10 text-gray-500">
-            <div class="loading loading-dots lodding-sm"></div>
-            <span class="text-sm">正在获取翻译…</span>
-        </div>
-        <div v-else class="px-4 py-4 max-h-64 overflow-y-auto">
-            <div class="text-base leading-relaxed text-gray-800" v-html="formattedContent"></div>
-        </div>
+        <transition name="fade-scale" mode="out-in">
+            <div v-if="!content" key="loading" class="px-4 py-4">
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <div class="skeleton h-4 w-5/12 rounded"></div>
+                        <div class="skeleton h-4 w-6/12 rounded"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="skeleton h-4 w-7/12 rounded"></div>
+                        <div class="skeleton h-4 w-4/12 rounded"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="skeleton h-4 w-6/12 rounded"></div>
+                        <div class="skeleton h-4 w-5/12 rounded"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="skeleton h-4 w-4/12 rounded"></div>
+                        <div class="skeleton h-4 w-7/12 rounded"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="skeleton h-4 w-8/12 rounded"></div>
+                        <div class="skeleton h-4 w-3/12 rounded"></div>
+                    </div>
+                </div>
+            </div>
+            <div v-else key="content" class="px-4 py-4 max-h-64 overflow-y-auto">
+                <div class="text-base leading-relaxed text-gray-800" v-html="formattedContent"></div>
+            </div>
+        </transition>
     </div>
 </template>
 
@@ -227,3 +249,28 @@ onBeforeUnmount(() => {
 });
 
 </script>
+
+<style scoped>
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: opacity 80ms ease, transform 100ms ease;
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.98);
+}
+.fade-scale-enter-to,
+.fade-scale-leave-from {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.fade-in {
+    animation: fadeIn 120ms ease both;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>

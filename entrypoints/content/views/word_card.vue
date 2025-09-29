@@ -1,44 +1,63 @@
 <template>
-    <div class="bg-white border-1 border-gray-300 rounded-xl min-w-100 min-h-15 p-3 text-black">
-        <div v-if="loading_flag" class="items-center justify-center flex h-full py-2">
-            <div class="loading loading-dots lodding-sm"></div>
-        </div>
-        <div v-else class="flex justify-between items-center">
-            <div class="flex items-center justify-center">
-                <div class="text-xl font-bold">{{ wordData?.word }}</div>
-                <div @click="playAudio" class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
-                    {{ wordData?.pronunciation }}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-lg  min-w-100 min-h-15 p-3 text-black">
+        <transition name="fade-scale" mode="out-in">
+            <!-- Loading View -->
+            <div v-if="loading_flag" key="loading" class="flex flex-col gap-3 py-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="skeleton h-6 w-24 rounded"></div>
+                        <div class="skeleton h-4 w-16 rounded"></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="skeleton h-8 w-8 rounded"></div>
+                        <div class="skeleton h-8 w-8 rounded"></div>
+                    </div>
                 </div>
+                <div class="skeleton h-4 w-4/12 rounded"></div>
             </div>
-            <div class="flex items-center justify-center">
-                <!-- 高亮按钮 -->
-                <div @click="highlightWord" title="高亮"
-                    class="rounded mx-1 p-2 text-sm cursor-pointer hover:bg-gray-100 w-10 h-10 flex items-center justify-center select-none">
-                    <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M9 11l6-6 3 3-6 6H9v-3z"></path>
-                        <path d="M13 5l3 3"></path>
-                        <path d="M8 17h8"></path>
-                        <path d="M6 21h12"></path>
-                    </svg>
-                </div>
-                <!-- 收藏按钮 -->
-                <div @click="collect_words" title="收藏"
-                    class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
-                    <svg v-if="!is_collected" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        aria-hidden="true">
-                        <path d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
-                    </svg>
-                    <svg v-else class="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor"
-                        aria-hidden="true">
-                        <path d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
-                    </svg>
-                </div>
-            </div>
-        </div>
 
-        <div class="py-2 text-sm text-justify" v-html="wordData?.meaning"></div>
+            <!-- Content View -->
+            <div v-else key="content">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center justify-center">
+                        <div class="text-xl font-bold">{{ wordData?.word }}</div>
+                        <div @click="playAudio"
+                            class="text-xs text-gray-400 px-2 rounded-sm hover:bg-gray-100 cursor-pointer">
+                            {{ wordData?.pronunciation }}
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <!-- 高亮按钮 -->
+                        <div @click="highlightWord" title="高亮"
+                            class="rounded mx-1 p-2 text-sm cursor-pointer hover:bg-gray-100 w-10 h-10 flex items-center justify-center select-none">
+                            <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M9 11l6-6 3 3-6 6H9v-3z"></path>
+                                <path d="M13 5l3 3"></path>
+                                <path d="M8 17h8"></path>
+                                <path d="M6 21h12"></path>
+                            </svg>
+                        </div>
+                        <!-- 收藏按钮 -->
+                        <div @click="collect_words" title="收藏"
+                            class="rounded p-2 text-sm cursor-pointer w-10 h-10 flex items-center justify-center select-none hover:bg-gray-100">
+                            <svg v-if="!is_collected" class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                aria-hidden="true">
+                                <path
+                                    d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                            </svg>
+                            <svg v-else class="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor"
+                                aria-hidden="true">
+                                <path
+                                    d="M12 17.3l-5.4 3.3 1.5-6.1L3 9.9l6.3-.5L12 3.8l2.7 5.6 6.3.5-5.1 4.6 1.5 6.1z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="py-2 text-sm text-justify fade-in" v-html="wordData?.meaning"></div>
+            </div>
+        </transition>
     </div>
 </template>
 
@@ -196,3 +215,38 @@ onMounted(() => {
     ai_trans();
 });
 </script>
+
+<style scoped>
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: opacity 180ms ease, transform 200ms ease;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.98);
+}
+
+.fade-scale-enter-to,
+.fade-scale-leave-from {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.fade-in {
+    animation: fadeIn 220ms ease both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
