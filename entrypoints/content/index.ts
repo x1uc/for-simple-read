@@ -19,6 +19,9 @@ export default defineContentScript({
         return;
       }
 
+      
+      await new Promise(resolve => setTimeout(resolve, 0));
+
       const selection = window.getSelection();
       if (selection && selection.toString().trim()) {
 
