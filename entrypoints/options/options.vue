@@ -116,15 +116,73 @@
       </div>
     </div>
 
-    <!-- Collect Settings -->
+    <!-- Wordbook -->
     <div v-else-if="page_flag === 'word'">
       <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title">收藏列表</h2>
-          <div class="divider"></div>
-          <div>
-            <div v-for="word_data of collection_words">
-              {{ word_data.word }} - {{ word_data.meaning }}
+        <div class="card-body space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="card-title">收藏列表</h2>
+              <p class="text-sm text-base-content/60">共 {{ wordCount }} 个单词</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="badge" :class="eudic_switch ? 'badge-success' : 'badge-ghost'">
+                {{ eudic_switch ? '远程同步已启用' : '远程同步未启用' }}
+              </div>
+              <button type="button" class="btn btn-outline btn-sm"
+                :class="{ 'btn-disabled': !hasWords }" :disabled="!hasWords" @click="handleExportWords">
+                导出单词
+              </button>
+              <button type="button" class="btn btn-primary btn-sm"
+                :class="{ 'btn-disabled': syncing }" :disabled="syncing" @click="handleRemoteSync">
+                <span v-if="syncing" class="loading loading-spinner loading-xs"></span>
+                <span>同步所有单词</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="message" :class="['alert', messageType === 'success' ? 'alert-success' : 'alert-error']">
+            <span>{{ message }}</span>
+          </div>
+          <div class="divider my-0"></div>
+
+          <div v-if="!hasWords" class="rounded-xl border border-dashed border-base-200 bg-base-200/40 p-6 text-center text-base-content/70">
+            <p class="font-medium">暂未收藏单词</p>
+            <p class="text-sm">在网页上选词并点击收藏后，将在此处展示。</p>
+          </div>
+
+          <div v-else class="space-y-2">
+            <div
+              v-for="(word_data, idx) in collection_words"
+              :key="`${word_data.word}-${idx}`"
+              class="grid grid-cols-1 gap-3 rounded-2xl border border-base-200 bg-base-200/30 px-4 py-3 transition hover:border-base-300 hover:bg-base-100 md:grid-cols-[auto_auto_1fr_auto] md:items-center"
+            >
+              <div class="text-base font-semibold text-base-content md:text-lg">{{ word_data.word }}</div>
+              <div class="text-sm text-base-content/60 md:text-base">{{ formatPronunciation(word_data.pronunciation) }}</div>
+              <div
+                class="text-sm text-base-content/80 md:text-base md:truncate"
+                :title="formatMeaning(word_data.meaning)"
+              >
+                {{ formatMeaning(word_data.meaning) }}
+              </div>
+              <div class="flex justify-start md:justify-end gap-2">
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  :class="{ 'btn-disabled': isWordSyncing(idx) }"
+                  :disabled="isWordSyncing(idx)"
+                  @click="handleSyncSingleWord(word_data, idx)"
+                >
+                  <span v-if="isWordSyncing(idx)" class="loading loading-spinner loading-xs"></span>
+                  <span v-else>单词同步</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-error btn-outline btn-sm"
+                  @click="handleDeleteWord(idx)"
+                >
+                  删除
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -167,12 +225,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import {
   ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_word_model_storage, ai_prompt_storage,
   youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage
 } from '@/libs/local_storage'
 import { WordData } from '@/libs/select_word'
+import { collect_word } from '@/libs/word_collector'
 import { OpenAI } from "openai";
 
 type Tab = 'ai' | 'collect' | 'word'
@@ -187,11 +246,16 @@ const youdao_token = ref<string>('')
 const eudic_token = ref<string>('')
 const eudic_switch = ref<boolean>(false)
 const collection_words = ref<WordData[]>([])
+const wordCount = computed(() => collection_words.value?.length || 0)
+const hasWords = computed(() => wordCount.value > 0)
+const syncing = ref(false)
+const wordSyncing = ref<Set<number>>(new Set())
 
 const testing = ref(false)
 const saving = ref(false)
 const message = ref<string>('')
 const messageType = ref<'success' | 'error'>('success')
+let messageTimer: number | null = null
 
 
 let content = ref<string>('')
@@ -232,10 +296,45 @@ const switchTab = async (tab: Tab) => {
   }
 }
 
-const notify = (msg: string, type: 'success' | 'error' = 'success') => {
+const notify = (msg: string, type: 'success' | 'error' = 'success', duration = 2500) => {
   message.value = msg
   messageType.value = type
-  setTimeout(() => (message.value = ''), 2500)
+  if (messageTimer) {
+    clearTimeout(messageTimer)
+    messageTimer = null
+  }
+  if (duration > 0) {
+    messageTimer = window.setTimeout(() => {
+      message.value = ''
+      messageTimer = null
+    }, duration)
+  }
+}
+
+const setWordSyncing = (idx: number, value: boolean) => {
+  const next = new Set(wordSyncing.value)
+  if (value) {
+    next.add(idx)
+  } else {
+    next.delete(idx)
+  }
+  wordSyncing.value = next
+}
+
+const isWordSyncing = (idx: number) => wordSyncing.value.has(idx)
+
+const formatPronunciation = (text: string | null | undefined) => {
+  const output = text?.trim()
+  return output && output !== '/' ? output : '—'
+}
+
+const formatMeaning = (text: string | null | undefined) => {
+  if (!text) return '暂无释义'
+  const stripped = text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return stripped || '暂无释义'
 }
 
 const handleSave = async () => {
@@ -311,6 +410,132 @@ const handleTest = async () => {
     content.value = e?.message || '请求失败'
   } finally {
     testing.value = false
+  }
+}
+
+const handleRemoteSync = async () => {
+  if (syncing.value) return
+
+  if (!hasWords.value) {
+    notify('暂无可同步的单词', 'error', 4000)
+    return
+  }
+
+  if (!eudic_switch.value) {
+    notify('请先在“收藏设置”中开启欧路词典同步', 'error', 4500)
+    return
+  }
+
+  syncing.value = true
+  try {
+    let successCount = 0
+    let failureCount = 0
+    const failedWords: string[] = []
+    const failureReasons: string[] = []
+
+    for (const wordItem of collection_words.value) {
+      const results = await collect_word(wordItem.word)
+      const failedResults = results.filter(res => res.code !== 0)
+      if (failedResults.length === 0) {
+        successCount += 1
+      } else {
+        failureCount += 1
+        failedWords.push(wordItem.word)
+        failureReasons.push(...failedResults.map(res => res.message))
+      }
+    }
+
+    if (failureCount === 0) {
+      notify(`远程同步完成，成功同步 ${successCount} 个单词`, 'success', 4000)
+    } else {
+      const uniqueReasons = [...new Set(failureReasons.filter(Boolean))]
+      const failedDetail = failedWords.length ? `：${failedWords.join('、')}` : ''
+      const reasonDetail = uniqueReasons.length ? `（${uniqueReasons.join('；')}）` : ''
+      notify(`远程同步完成，成功 ${successCount} 个，失败 ${failureCount} 个${failedDetail}${reasonDetail}`, 'error', 6000)
+    }
+  } catch (error: any) {
+    console.error('Remote sync error', error)
+    notify(error?.message ? `同步失败：${error.message}` : '同步失败，请稍后重试', 'error', 5000)
+  } finally {
+    syncing.value = false
+  }
+}
+
+const handleSyncSingleWord = async (wordItem: WordData, idx: number) => {
+  if (isWordSyncing(idx)) return
+
+  if (!eudic_switch.value) {
+    notify('请先在“收藏设置”中开启欧路词典同步', 'error', 4500)
+    return
+  }
+
+  if (!eudic_token.value?.trim()) {
+    notify('请在“收藏设置”中填写欧路词典授权信息', 'error', 4500)
+    return
+  }
+
+  setWordSyncing(idx, true)
+  try {
+    const results = await collect_word(wordItem.word)
+    const failedResults = results.filter(res => res.code !== 0)
+
+    if (failedResults.length === 0) {
+      notify(`已同步 ${wordItem.word}`, 'success', 3500)
+    } else {
+      const uniqueReasons = [...new Set(failedResults.map(res => res.message).filter(Boolean))]
+      const reasonDetail = uniqueReasons.length ? `（${uniqueReasons.join('；')}）` : ''
+      notify(`同步 ${wordItem.word} 失败${reasonDetail}`, 'error', 5000)
+    }
+  } catch (error: any) {
+    console.error('Single word sync error', error)
+    notify(error?.message ? `同步失败：${error.message}` : '同步失败，请稍后重试', 'error', 5000)
+  } finally {
+    setWordSyncing(idx, false)
+  }
+}
+
+const handleDeleteWord = async (idx: number) => {
+  if (idx < 0 || idx >= collection_words.value.length) return
+
+  const wordToDelete = collection_words.value[idx].word
+
+  try {
+    const newCollectionWords = collection_words.value.filter((_, index) => index !== idx)
+    collection_words.value = newCollectionWords
+    await collection_words_storage.setValue(newCollectionWords)
+    notify(`已删除 "${wordToDelete}"`, 'success', 2000)
+  } catch (error) {
+    console.error('Delete word error', error)
+    notify('删除失败，请稍后重试', 'error', 3000)
+  }
+}
+
+const handleExportWords = () => {
+  if (!hasWords.value) {
+    notify('暂无可导出的单词', 'error', 2000)
+    return
+  }
+
+  try {
+    const wordsText = collection_words.value
+      .map(wordItem => wordItem.word.trim())
+      .filter(word => word)
+      .join('\n')
+
+    const blob = new Blob([wordsText], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `words_${new Date().toISOString().split('T')[0]}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    notify(`已导出 ${wordCount.value} 个单词`, 'success', 2000)
+  } catch (error) {
+    console.error('Export words error', error)
+    notify('导出失败，请稍后重试', 'error', 3000)
   }
 }
 
