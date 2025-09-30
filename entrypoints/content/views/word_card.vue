@@ -162,6 +162,7 @@ const ai_trans = async () => {
     const content = response.choices[0].message.content;
     const word_obj = JSON.parse(content!) as WordData;
     wordData.value = word_obj;
+    await f_is_collected();
     loading_flag.value = false;
 }
 
