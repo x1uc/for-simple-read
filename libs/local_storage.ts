@@ -17,3 +17,8 @@ export const eudic_switch_storage = storage.defineItem<boolean>("local:eudic_swi
 export const collection_words_storage = storage.defineItem<WordData[]>("local:collection_words");
 
 export const options_tab_storage = storage.defineItem<string>('local:options_tab')
+
+// 句子高亮配置
+export const sentence_highlight_color_storage = storage.defineItem<string>('local:sentence_highlight_color', {
+  fallback: '#FFF59D' // 默认黄色
+})
