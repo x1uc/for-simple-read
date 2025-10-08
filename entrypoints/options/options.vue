@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto p-4 space-y-4">
+  <div :class="['mx-auto p-4 space-y-4', page_flag === 'sentence' ? 'max-w-6xl' : 'max-w-3xl']">
     <!-- Tabs -->
     <div role="tablist" class="tabs tabs-boxed">
       <a role="tab" :class="['tab', page_flag === 'ai' && 'tab-active']" @click="switchTab('ai')">
@@ -10,6 +10,9 @@
       </a>
       <a role="tab" :class="['tab', page_flag === 'word' && 'tab-active']" @click="switchTab('word')">
         生词本
+      </a>
+      <a role="tab" :class="['tab', page_flag === 'sentence' && 'tab-active']" @click="switchTab('sentence')">
+        句子高亮
       </a>
     </div>
 
@@ -189,6 +192,153 @@
       </div>
     </div>
 
+    <!-- Sentence Highlights -->
+    <div v-else-if="page_flag === 'sentence'">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="card-title">句子高亮</h2>
+              <p class="text-sm text-base-content/60">共 {{ totalHighlights }} 个高亮，{{ websiteCount }} 个网站</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <!-- 颜色选择器 -->
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-base-content/60">高亮颜色:</span>
+                <div class="relative">
+                  <input
+                    type="color"
+                    v-model="sentenceHighlightColor"
+                    @change="handleSentenceHighlightColorChange"
+                    class="w-8 h-8 border border-base-300 rounded cursor-pointer"
+                    :title="sentenceHighlightColor"
+                  />
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-outline btn-sm"
+                  :class="{ 'btn-disabled': !hasHighlights }" :disabled="!hasHighlights" @click="handleExportHighlights">
+                  导出
+                </button>
+                <button type="button" class="btn btn-error btn-outline btn-sm"
+                  :class="{ 'btn-disabled': !hasHighlights }" :disabled="!hasHighlights" @click="handleClearAllHighlights">
+                  清空
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-if="message" :class="['alert', messageType === 'success' ? 'alert-success' : 'alert-error']">
+            <span>{{ message }}</span>
+          </div>
+          <div class="divider my-0"></div>
+
+          <div v-if="!hasHighlights" class="rounded-xl border border-dashed border-base-200 bg-base-200/40 p-6 text-center text-base-content/70">
+            <p class="font-medium">暂无句子高亮</p>
+            <p class="text-sm">在网页上选中句子并点击"高亮句子"后，将在此处展示。</p>
+          </div>
+
+          <div v-else class="flex gap-6">
+            <!-- Left Sidebar - Website List -->
+            <div class="w-96 min-w-0">
+              <div class="form-control mb-3">
+                <input
+                  type="text"
+                  v-model="websiteSearchQuery"
+                  placeholder="搜索网站..."
+                  class="input input-bordered input-sm w-full"
+                />
+              </div>
+              <div class="max-h-96 overflow-y-auto space-y-2 pr-2">
+                <div
+                  v-for="group in filteredWebsiteGroups"
+                  :key="group.url"
+                  class="cursor-pointer rounded-lg border border-base-200 bg-base-200/30 p-3"
+                  :class="{ 'border-primary bg-primary/10': selectedWebsite === group.url }"
+                  @click="selectWebsite(group.url)"
+                >
+                  <div class="font-medium text-sm truncate" :title="group.title">
+                    {{ group.title }}
+                  </div>
+                  <div class="text-xs text-base-content/60 truncate" :title="group.url">
+                    {{ group.url }}
+                  </div>
+                  <div class="text-xs text-base-content/50 mt-1">
+                    {{ group.highlights.length }} 个高亮
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Content - Selected Website Highlights -->
+            <div class="flex-1 min-w-0">
+              <div v-if="!selectedWebsite" class="rounded-xl border border-dashed border-base-200 bg-base-200/40 p-6 text-center text-base-content/70">
+                <p class="font-medium">请选择网站</p>
+                <p class="text-sm">从左侧列表中选择一个网站查看其句子高亮。</p>
+              </div>
+
+              <div v-else class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-semibold text-lg">{{ getSelectedWebsiteTitle() }}</h3>
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-xs"
+                      @click="openUrl(selectedWebsite)"
+                    >
+                      打开网页
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-xs"
+                      @click="handleClearWebsiteHighlights"
+                    >
+                      清空网站高亮
+                    </button>
+                  </div>
+                </div>
+
+                <div class="max-h-80 overflow-y-auto space-y-3 pr-2">
+                  <div
+                    v-for="highlight in getSelectedWebsiteHighlights()"
+                    :key="highlight.id"
+                    class="rounded-lg border border-base-200 bg-base-200/30 p-4"
+                  >
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                      <div class="flex-1">
+                        <div class="font-medium text-base-content/80 text-sm mb-2">
+                          {{ highlight.sentence }}
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          class="btn btn-error btn-outline btn-xs"
+                          @click="handleDeleteHighlight(highlight.id)"
+                        >
+                          删除
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-outline btn-xs"
+                          @click="copyToClipboard(highlight.sentence)"
+                        >
+                          复制
+                        </button>
+                      </div>
+                    </div>
+                    <div class="text-xs text-base-content/50">
+                      {{ formatDate(highlight.timestamp) }}
+                      <span v-if="highlight.note" class="ml-2">• {{ highlight.note }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 测试 API 结果弹窗 -->
     <dialog ref="testDialog" class="modal">
       <div class="modal-box max-w-2xl">
@@ -225,16 +375,18 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import {
   ai_api_url_storage, ai_api_key_storage, ai_model_storage, ai_word_model_storage, ai_prompt_storage,
-  youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage
+  youdao_token_storage, eudic_token_storage, eudic_switch_storage, collection_words_storage, options_tab_storage,
+  sentence_highlight_color_storage
 } from '@/libs/local_storage'
 import { WordData } from '@/libs/select_word'
 import { collect_word } from '@/libs/word_collector'
 import { OpenAI } from "openai";
+import { SentenceHighlightStorage, type SentenceHighlightData } from '@/libs/sentence_highlight_storage';
 
-type Tab = 'ai' | 'collect' | 'word'
+type Tab = 'ai' | 'collect' | 'word' | 'sentence'
 const page_flag = ref<Tab>('ai')
 
 const apiUrl = ref<string>('')
@@ -248,8 +400,53 @@ const eudic_switch = ref<boolean>(false)
 const collection_words = ref<WordData[]>([])
 const wordCount = computed(() => collection_words.value?.length || 0)
 const hasWords = computed(() => wordCount.value > 0)
+
+// Sentence highlights computed properties
+const totalHighlights = computed(() => sentenceHighlights.value?.length || 0)
+const hasHighlights = computed(() => totalHighlights.value > 0)
+
+const websiteGroups = computed(() => {
+  const groups: { [url: string]: { title: string; url: string; highlights: SentenceHighlightData[] } } = {};
+
+  sentenceHighlights.value.forEach(highlight => {
+    if (!groups[highlight.url]) {
+      groups[highlight.url] = {
+        title: highlight.title || getWebsiteTitle(highlight.url),
+        url: highlight.url,
+        highlights: []
+      };
+    }
+    groups[highlight.url].highlights.push(highlight);
+  });
+
+  return Object.values(groups).sort((a, b) => {
+    const aLatest = Math.max(...a.highlights.map(h => h.timestamp));
+    const bLatest = Math.max(...b.highlights.map(h => h.timestamp));
+    return bLatest - aLatest;
+  });
+});
+
+const websiteCount = computed(() => websiteGroups.value?.length || 0);
+
+const filteredWebsiteGroups = computed(() => {
+  if (!websiteSearchQuery.value.trim()) {
+    return websiteGroups.value;
+  }
+
+  const query = websiteSearchQuery.value.toLowerCase();
+  return websiteGroups.value.filter(group =>
+    group.title.toLowerCase().includes(query) ||
+    group.url.toLowerCase().includes(query)
+  );
+});
 const syncing = ref(false)
 const wordSyncing = ref<Set<number>>(new Set())
+
+// Sentence highlights state
+const sentenceHighlights = ref<SentenceHighlightData[]>([])
+const selectedWebsite = ref<string>('')
+const websiteSearchQuery = ref<string>('')
+const sentenceHighlightColor = ref<string>('#FFF59D')
 
 const testing = ref(false)
 const saving = ref(false)
@@ -271,7 +468,7 @@ onMounted(async () => {
     // 读取保存的tab状态，如果没读到则使用默认值 'ai'
     const savedTab = await options_tab_storage.getValue()
     page_flag.value = (savedTab as Tab) || 'ai'
-    
+
     apiUrl.value = await ai_api_url_storage.getValue() || ''
     apiKey.value = await ai_api_key_storage.getValue() || ''
     model.value = await ai_model_storage.getValue() || ''
@@ -281,10 +478,23 @@ onMounted(async () => {
     eudic_token.value = await eudic_token_storage.getValue() || ''
     eudic_switch.value = await eudic_switch_storage.getValue() || false
     collection_words.value = await collection_words_storage.getValue() || []
+
+    // Load sentence highlight color
+    sentenceHighlightColor.value = await sentence_highlight_color_storage.getValue() || '#FFF59D'
+
+    // Load sentence highlights
+    await loadSentenceHighlights()
   } catch {
     console.warn('Failed to load saved settings')
   }
 })
+
+// Watch for tab changes to reload sentence highlights
+watch(page_flag, async (newTab) => {
+  if (newTab === 'sentence') {
+    await loadSentenceHighlights();
+  }
+});
 
 // 新增：切换tab并保存状态
 const switchTab = async (tab: Tab) => {
@@ -543,6 +753,171 @@ const handleOpenEudicCollect = () => {
   eudic_switch.value = !eudic_switch.value
   eudic_switch_storage.setValue(eudic_switch.value)
 }
+
+// 句子高亮颜色配置
+const handleSentenceHighlightColorChange = async () => {
+  try {
+    await sentence_highlight_color_storage.setValue(sentenceHighlightColor.value);
+    notify('高亮颜色已保存', 'success', 2000);
+  } catch (error) {
+    console.error('Error saving sentence highlight color:', error);
+    notify('保存颜色失败', 'error', 2000);
+  }
+};
+
+// Sentence highlights methods
+const loadSentenceHighlights = async () => {
+  try {
+    sentenceHighlights.value = await SentenceHighlightStorage.getAllHighlights();
+  } catch (error) {
+    console.error('Error loading sentence highlights:', error);
+    sentenceHighlights.value = [];
+  }
+};
+
+const getWebsiteTitle = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname + (urlObj.pathname !== '/' ? urlObj.pathname : '');
+  } catch {
+    return url;
+  }
+};
+
+const selectWebsite = (url: string) => {
+  selectedWebsite.value = url;
+};
+
+const getSelectedWebsiteTitle = (): string => {
+  if (!selectedWebsite.value) return '';
+  const group = websiteGroups.value.find(g => g.url === selectedWebsite.value);
+  return group?.title || selectedWebsite.value;
+};
+
+const getSelectedWebsiteHighlights = (): SentenceHighlightData[] => {
+  if (!selectedWebsite.value) return [];
+  const group = websiteGroups.value.find(g => g.url === selectedWebsite.value);
+  return group?.highlights.sort((a, b) => b.timestamp - a.timestamp) || [];
+};
+
+
+const formatDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const openUrl = (url: string) => {
+  window.open(url, '_blank');
+};
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    notify('已复制到剪贴板', 'success', 2000);
+  } catch (error) {
+    notify('复制失败', 'error', 2000);
+  }
+};
+
+const handleDeleteHighlight = async (id: string) => {
+  try {
+    await SentenceHighlightStorage.removeHighlight(id);
+    await loadSentenceHighlights();
+    notify('已删除高亮', 'success', 2000);
+  } catch (error) {
+    console.error('Error deleting highlight:', error);
+    notify('删除失败', 'error', 2000);
+  }
+};
+
+const handleClearWebsiteHighlights = async () => {
+  if (!selectedWebsite.value) return;
+
+  if (!confirm(`确定要清空"${getSelectedWebsiteTitle()}"的所有高亮吗？`)) {
+    return;
+  }
+
+  try {
+    await SentenceHighlightStorage.clearHighlights(selectedWebsite.value);
+    await loadSentenceHighlights();
+    selectedWebsite.value = '';
+    notify('已清空网站高亮', 'success', 2000);
+  } catch (error) {
+    console.error('Error clearing website highlights:', error);
+    notify('清空失败', 'error', 2000);
+  }
+};
+
+const handleClearAllHighlights = async () => {
+  if (!confirm('确定要清空所有句子高亮吗？此操作不可恢复。')) {
+    return;
+  }
+
+  try {
+    const highlights = await SentenceHighlightStorage.getAllHighlights();
+    for (const highlight of highlights) {
+      await SentenceHighlightStorage.removeHighlight(highlight.id);
+    }
+    await loadSentenceHighlights();
+    selectedWebsite.value = '';
+    notify('已清空所有高亮', 'success', 2000);
+  } catch (error) {
+    console.error('Error clearing all highlights:', error);
+    notify('清空失败', 'error', 2000);
+  }
+};
+
+const handleExportHighlights = async () => {
+  if (!hasHighlights.value) {
+    notify('暂无可导出的高亮', 'error', 2000);
+    return;
+  }
+
+  try {
+    const exportData = sentenceHighlights.value
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map(highlight => ({
+        网站: getWebsiteTitle(highlight.url),
+        句子: highlight.sentence,
+        时间: formatDate(highlight.timestamp),
+        颜色: highlight.color || '#FFF59D',
+        备注: highlight.note || ''
+      }));
+
+    const headers = ['网站', '句子', '时间', '颜色', '备注'];
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(header =>
+          `"${(row as any)[header]?.toString().replace(/"/g, '""') || ''}"`
+        ).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sentence_highlights_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    notify(`已导出 ${totalHighlights.value} 个高亮`, 'success', 2000);
+  } catch (error) {
+    console.error('Export highlights error:', error);
+    notify('导出失败，请稍后重试', 'error', 3000);
+  }
+};
 </script>
 
 <style scoped>
