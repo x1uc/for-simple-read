@@ -45,8 +45,11 @@ for-simple-read 是一款浏览器扩展插件，旨在帮助英语学习者更�
 - **句子高亮**：句子高亮记录
 
 ![AI 配置](doc/assets/ai-config.png)
+
 ![收藏设置](doc/assets/save-config.png)
+
 ![生词本](doc/assets/word-config.png)
+
 ![高亮管理](doc/assets/highlight-config.png)
 
 ---
