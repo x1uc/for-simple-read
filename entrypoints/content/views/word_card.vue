@@ -136,6 +136,7 @@ const ai_trans = async () => {
             pronunciation: cachedWordData.pronunciation,
             meaning: cachedWordData.meaning
         };
+        is_collected.value = await f_is_collected();
         loading_flag.value = false;
         return;
     }
