@@ -153,20 +153,64 @@ export class SentenceHighlightRenderer {
             const highlightData = highlights.find(h => h.id === highlightId);
 
             if (highlightData) {
-              // 创建一个高亮菜单
-              const rect = target.getBoundingClientRect();
-              const position = {
-                x: rect.left + window.scrollX,
-                y: rect.bottom + window.scrollY + 5
-              };
+            // 创建取消高亮按钮
+            const rect = target.getBoundingClientRect();
+            const removeButton = document.createElement('div');
+            removeButton.style.cssText = `
+              position: absolute;
+              left: ${rect.left + window.scrollX + rect.width - 10}px;
+              top: ${rect.top + window.scrollY - 10}px;
+              width: 20px;
+              height: 20px;
+              background: #ef4444;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              z-index: 10002;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              transition: all 0.2s ease;
+            `;
 
-              // 触发显示高亮菜单事件
-              eventManager.emit('show-sentence-highlight-menu', {
-                highlightData: highlightData,
-                position: position,
-                target: target
-              });
-            }
+            removeButton.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" style="width: 12px; height: 12px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            `;
+
+            removeButton.addEventListener('mouseenter', () => {
+              removeButton.style.transform = 'scale(1.1)';
+              removeButton.style.backgroundColor = '#dc2626';
+            });
+
+            removeButton.addEventListener('mouseleave', () => {
+              removeButton.style.transform = 'scale(1)';
+              removeButton.style.backgroundColor = '#ef4444';
+            });
+
+            removeButton.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              if (highlightId) {
+                await SentenceHighlightStorage.removeHighlight(highlightId);
+                SentenceHighlightRenderer.renderHighlights();
+              }
+              removeButton.remove();
+            });
+
+            document.body.appendChild(removeButton);
+
+            // 点击其他地方时移除按钮
+            setTimeout(() => {
+              const removeButtonHandler = (e: MouseEvent) => {
+                if (!removeButton.contains(e.target as Node)) {
+                  removeButton.remove();
+                  document.removeEventListener('click', removeButtonHandler);
+                }
+              };
+              document.addEventListener('click', removeButtonHandler);
+            }, 100);
+          }
           } catch (error) {
             console.error('Error handling sentence highlight click:', error);
           }
