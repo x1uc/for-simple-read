@@ -306,7 +306,7 @@
                     <div class="flex items-start justify-between gap-3 mb-2">
                       <div class="flex-1">
                         <div class="font-medium text-base-content/80 text-sm mb-2">
-                          {{ highlight.sentence }}
+                          {{ getHighlightText(highlight) }}
                         </div>
                       </div>
                       <div class="flex flex-col gap-1">
@@ -320,7 +320,7 @@
                         <button
                           type="button"
                           class="btn btn-outline btn-xs"
-                          @click="copyToClipboard(highlight.sentence)"
+                          @click="copyToClipboard(getHighlightText(highlight))"
                         >
                           复制
                         </button>
@@ -800,6 +800,10 @@ const getSelectedWebsiteHighlights = (): SentenceHighlightData[] => {
   return group?.highlights.sort((a, b) => b.timestamp - a.timestamp) || [];
 };
 
+const getHighlightText = (highlight: SentenceHighlightData): string => {
+  return highlight.exact || (highlight as any).sentence || '';
+};
+
 
 const formatDate = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -884,7 +888,7 @@ const handleExportHighlights = async () => {
       .sort((a, b) => b.timestamp - a.timestamp)
       .map(highlight => ({
         网站: getWebsiteTitle(highlight.url),
-        句子: highlight.sentence,
+        句子: getHighlightText(highlight),
         时间: formatDate(highlight.timestamp),
         颜色: highlight.color || '#FFF59D',
         备注: highlight.note || ''

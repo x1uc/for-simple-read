@@ -427,6 +427,35 @@ export default defineContentScript({
       HighlightRenderer.renderHighlights();
     });
 
+    let sentenceObserverMuted = false;
+    let sentenceRenderTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const renderSentenceHighlightsSafely = async () => {
+      if (SentenceHighlightRenderer.isRenderInProgress()) return;
+      sentenceObserverMuted = true;
+      try {
+        await SentenceHighlightRenderer.renderHighlights();
+      } finally {
+        setTimeout(() => {
+          sentenceObserverMuted = false;
+        }, 300);
+      }
+    };
+
+    const scheduleSentenceHighlightRender = () => {
+      if (sentenceObserverMuted || SentenceHighlightRenderer.isRenderInProgress()) return;
+      if (sentenceRenderTimer) {
+        clearTimeout(sentenceRenderTimer);
+      }
+      sentenceRenderTimer = setTimeout(() => {
+        renderSentenceHighlightsSafely();
+      }, 300);
+    };
+
+    const sentenceHighlightObserver = new MutationObserver(() => {
+      scheduleSentenceHighlightRender();
+    });
+
     // 添加句子高亮事件监听
     eventManager.on('highlight-sentence', async () => {
       if (currentSelection) {
@@ -439,17 +468,23 @@ export default defineContentScript({
 
     // 添加句子高亮渲染事件监听
     eventManager.on('render-sentence-highlights', () => {
-      SentenceHighlightRenderer.renderHighlights();
+      renderSentenceHighlightsSafely();
     });
 
     // 页面加载时恢复高亮
     setTimeout(() => {
       HighlightRenderer.renderHighlights();
       HighlightRenderer.addHighlightClickListeners(eventManager);
-      SentenceHighlightRenderer.renderHighlights();
+      renderSentenceHighlightsSafely();
       SentenceHighlightRenderer.addHighlightClickListeners(eventManager);
+      if (document.body) {
+        sentenceHighlightObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      }
     }, 1000); // 延迟1秒确保页面完全加载
 
   },
 });
-
