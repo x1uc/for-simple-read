@@ -1,4 +1,6 @@
 // 句子高亮数据的接口定义
+import { DEFAULT_SENTENCE_HIGHLIGHT_COLOR } from './local_storage';
+
 export interface SentenceHighlightData {
   id: string;
   sentence: string;
@@ -114,7 +116,7 @@ export function generateSentenceHighlightId(): string {
 
 // 预定义的高亮颜色
 export const HIGHLIGHT_COLORS = [
-  '#FFF59D', // 黄色
+  DEFAULT_SENTENCE_HIGHLIGHT_COLOR, // 柔和黄色
   '#FFCCBC', // 橙色
   '#C8E6C9', // 绿色
   '#BBDEFB', // 蓝色
@@ -131,7 +133,7 @@ export async function getConfiguredHighlightColor(): Promise<string> {
     return await sentence_highlight_color_storage.getValue();
   } catch (error) {
     console.error('Error getting configured highlight color:', error);
-    return '#FFF59D'; // 默认黄色
+    return DEFAULT_SENTENCE_HIGHLIGHT_COLOR;
   }
 }
 

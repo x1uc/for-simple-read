@@ -1,5 +1,7 @@
 import { WordData } from "./select_word";
 
+export const DEFAULT_SENTENCE_HIGHLIGHT_COLOR = "#38BDF8";
+
 // AI 配置持久化
 export const ai_api_key_storage = storage.defineItem<string | null>("local:ai_api_key"); 
 export const ai_api_url_storage = storage.defineItem<string | null>("local:ai_api_url");
@@ -20,5 +22,5 @@ export const options_tab_storage = storage.defineItem<string>('local:options_tab
 
 // 句子高亮配置
 export const sentence_highlight_color_storage = storage.defineItem<string>('local:sentence_highlight_color', {
-  fallback: '#FFF59D' // 默认黄色
+  fallback: DEFAULT_SENTENCE_HIGHLIGHT_COLOR
 })

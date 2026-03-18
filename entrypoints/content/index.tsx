@@ -1,8 +1,8 @@
 import "../../assets/tailwind.css";
-import { createApp } from "vue";
-import popup_thumb from "@/entrypoints/content/views/popup_thumb.vue";
-import word_card from "@/entrypoints/content/views/word_card.vue"; // 引入 word_card 组件
-import ai_trans_card from "@/entrypoints/content/views/ai_trans_card.vue";
+import { createRoot, type Root } from "react-dom/client";
+import PopupThumb from "@/entrypoints/content/views/popup_thumb";
+import WordCard from "@/entrypoints/content/views/word_card";
+import AITransCard from "@/entrypoints/content/views/ai_trans_card";
 import { select_word_storage } from "@/libs/select_word";
 import { HighlightStorage, generateHighlightId, getElementXPath, type HighlightData } from "@/libs/highlight_storage";
 import { EventManager } from "@/libs/event_manager";
@@ -168,15 +168,16 @@ export default defineContentScript({
             container.style.top = `${position.y}px`;
             container.style.zIndex = '10000';
             container.style.pointerEvents = 'auto';
+            container.style.background = 'transparent';
+            container.style.border = 'none';
+            container.style.boxShadow = 'none';
 
-            const app = createApp(popup_thumb);
-            // 3. 将 eventManager 注入到 Vue 应用中
-            app.provide('eventManager', eventManager);
-            app.mount(container);
-            return app;
+            const root = createRoot(container);
+            root.render(<PopupThumb eventManager={eventManager} />);
+            return root;
           },
-          onRemove(app) {
-            app?.unmount();
+          onRemove(root?: Root) {
+            root?.unmount();
           },
         });
       } else {
@@ -202,16 +203,21 @@ export default defineContentScript({
             container.style.top = `${position.y}px`;
             container.style.zIndex = '10000';
             container.style.pointerEvents = 'auto';
+            container.style.background = 'transparent';
+            container.style.border = 'none';
+            container.style.boxShadow = 'none';
 
-            const app = createApp(word_card);
-            // 同样注入 eventManager
-            app.provide('eventManager', eventManager);
-            app.provide('selectedWord', select_word_storage);
-            app.mount(container);
-            return app;
+            const root = createRoot(container);
+            root.render(
+              <WordCard
+                eventManager={eventManager}
+                selectedWordStore={select_word_storage}
+              />,
+            );
+            return root;
           },
-          onRemove(app) {
-            app?.unmount();
+          onRemove(root?: Root) {
+            root?.unmount();
           },
         });
       }
@@ -221,12 +227,6 @@ export default defineContentScript({
     // 显示缓存的单词卡片（无需再次查询API）
     const ensure_cached_word_card = async (wordData: any, position: { x: number, y: number }) => {
       if (!word_card_ui) {
-        // 创建一个特殊的存储对象来提供缓存的数据
-        const cached_word_storage = {
-          getValue: () => Promise.resolve(wordData.word),
-          setValue: (value: string) => Promise.resolve()
-        };
-
         word_card_ui = await createShadowRootUi(ctx, {
           name: 'word-card',
           position: 'overlay',
@@ -238,17 +238,22 @@ export default defineContentScript({
             container.style.top = `${position.y}px`;
             container.style.zIndex = '10000';
             container.style.pointerEvents = 'auto';
+            container.style.background = 'transparent';
+            container.style.border = 'none';
+            container.style.boxShadow = 'none';
 
-            const app = createApp(word_card);
-            // 注入 eventManager 和缓存的单词数据
-            app.provide('eventManager', eventManager);
-            app.provide('selectedWord', cached_word_storage);
-            app.provide('cachedWordData', wordData); // 提供缓存的数据
-            app.mount(container);
-            return app;
+            const root = createRoot(container);
+            root.render(
+              <WordCard
+                eventManager={eventManager}
+                selectedWordStore={select_word_storage}
+                cachedWordData={wordData}
+              />,
+            );
+            return root;
           },
-          onRemove(app) {
-            app?.unmount();
+          onRemove(root?: Root) {
+            root?.unmount();
           },
         });
       }
@@ -279,16 +284,22 @@ export default defineContentScript({
             container.style.top = `${initialPosition.top}px`;
             container.style.zIndex = '10000';
             container.style.pointerEvents = 'auto';
+            container.style.background = 'transparent';
+            container.style.border = 'none';
+            container.style.boxShadow = 'none';
 
-            const app = createApp(ai_trans_card);
-
-            app.provide('eventManager', eventManager);
-            app.provide('selectedWord', select_word_storage);
-            app.mount(container);
-            return app;
+            const root = createRoot(container);
+            root.render(
+              <AITransCard
+                eventManager={eventManager}
+                selectedWordStore={select_word_storage}
+                initialPinned={isAiTransCardPinned}
+              />,
+            );
+            return root;
           },
-          onRemove(app) {
-            app?.unmount();
+          onRemove(root?: Root) {
+            root?.unmount();
           },
         });
       } else if (!isAiTransCardPinned) {
@@ -452,4 +463,3 @@ export default defineContentScript({
 
   },
 });
-

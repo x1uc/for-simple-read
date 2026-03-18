@@ -1,5 +1,22 @@
 import { SentenceHighlightStorage, getElementByXPath, getConfiguredHighlightColor, type SentenceHighlightData } from './sentence_highlight_storage';
 import { EventManager } from './event_manager';
+import { DEFAULT_SENTENCE_HIGHLIGHT_COLOR } from './local_storage';
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace('#', '').trim();
+  const full = normalized.length === 3
+    ? normalized.split('').map((char) => char + char).join('')
+    : normalized;
+
+  if (full.length !== 6) {
+    return `rgba(56, 189, 248, ${alpha})`;
+  }
+
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 // 句子高亮渲染类
 export class SentenceHighlightRenderer {
@@ -59,17 +76,20 @@ export class SentenceHighlightRenderer {
     highlightSpan.textContent = text.substring(sentenceIndex, sentenceIndex + highlight.sentence.length);
 
     // 使用用户设置的颜色或默认颜色
-    const color = highlight.color || '#FFF59D';
+    const color = highlight.color || DEFAULT_SENTENCE_HIGHLIGHT_COLOR;
+    const backgroundColor = hexToRgba(color, 0.32);
 
     // 使用内联样式
     highlightSpan.style.cssText = `
-      background-color: ${color} !important;
+      background-color: ${backgroundColor} !important;
       border-radius: 3px !important;
       padding: 2px 4px !important;
       cursor: pointer !important;
       transition: all 0.2s ease !important;
       position: relative !important;
       display: inline !important;
+      box-decoration-break: clone !important;
+      -webkit-box-decoration-break: clone !important;
     `;
 
     // 添加鼠标悬停效果

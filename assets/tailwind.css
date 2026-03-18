@@ -13,4 +13,16 @@
   background-color: rgba(255, 255, 0, 0.5) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
-@plugin "daisyui";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at top, rgba(14, 165, 233, 0.18), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
