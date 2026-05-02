@@ -80,7 +80,7 @@ export default function AITransCard({
             { role: "system", content: customPrompt || defaultPrompt },
             { role: "user", content: selection?.word || "" },
           ],
-          ...(model.includes("deepseek") ? { thinking: { "type": "enabled" } } : {}),
+          ...(model.includes("deepseek") ? { thinking: { "type": "disabled" } } : {}),
         },
       );
 
