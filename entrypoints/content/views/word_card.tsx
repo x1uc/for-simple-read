@@ -106,6 +106,7 @@ export default function WordCard({
             { role: "user", content: `Word: ${selected.word} Context: ${selected.context}` },
           ],
           response_format: { type: "json_object" },
+          ...(model.includes("deepseek") ? { thinking: { "type": "disabled" } } : {}),
         });
         const content = response.choices[0]?.message?.content;
         const parsed = JSON.parse(content || "{}") as WordData;

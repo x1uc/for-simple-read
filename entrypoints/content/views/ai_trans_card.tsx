@@ -80,7 +80,9 @@ export default function AITransCard({
             { role: "system", content: customPrompt || defaultPrompt },
             { role: "user", content: selection?.word || "" },
           ],
-        });
+          ...(model.includes("deepseek") ? { thinking: { "type": "enabled" } } : {}),
+        },
+      );
 
         for await (const chunk of stream) {
           const nowText = chunk.choices[0]?.delta?.content;
@@ -178,9 +180,8 @@ export default function AITransCard({
       className="w-[400px] overflow-hidden rounded-[10px] border border-slate-200/80 bg-white text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
     >
       <div
-        className={`flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-1 select-none ${
-          isDragging ? "cursor-grabbing" : "cursor-grab"
-        }`}
+        className={`flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-1 select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
+          }`}
         onPointerDown={onPointerDown}
       >
         <div>
@@ -190,9 +191,8 @@ export default function AITransCard({
           <button
             type="button"
             onClick={togglePin}
-            className={`rounded-xl px-3 py-2 text-xs font-medium transition ${
-              isPinned ? "bg-sky-100 text-sky-700" : "border border-slate-200 hover:bg-slate-100"
-            }`}
+            className={`rounded-xl px-3 py-2 text-xs font-medium transition ${isPinned ? "bg-sky-100 text-sky-700" : "border border-slate-200 hover:bg-slate-100"
+              }`}
           >
             {isPinned ? "已置顶" : "置顶"}
           </button>
