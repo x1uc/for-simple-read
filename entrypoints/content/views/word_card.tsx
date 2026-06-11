@@ -10,7 +10,6 @@ import {
   collection_words_storage,
 } from "@/libs/local_storage";
 import type { SelectInfo, WordData } from "@/libs/select_word";
-import { collect_word } from "@/libs/word_collector";
 
 type SelectedWordStore = {
   getValue: () => Promise<SelectInfo | null>;
@@ -145,8 +144,6 @@ export default function WordCard({
     if (!wordData || isCollected) return;
     const storedWords = (await collection_words_storage.getValue()) || [];
     await collection_words_storage.setValue([...storedWords, wordData]);
-    const selected = await selectedWordStore.getValue();
-    await collect_word(wordData.word, selected?.context);
     setIsCollected(true);
   }
 

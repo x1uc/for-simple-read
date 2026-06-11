@@ -8,27 +8,22 @@ import {
   ai_prompt_storage,
   ai_word_model_storage,
   collection_words_storage,
-  eudic_switch_storage,
-  eudic_token_storage,
   options_tab_storage,
   DEFAULT_SENTENCE_HIGHLIGHT_COLOR,
   sentence_highlight_color_storage,
-  youdao_token_storage,
 } from "@/libs/local_storage";
 import { SentenceHighlightStorage, type SentenceHighlightData } from "@/libs/sentence_highlight_storage";
 import { type WordData } from "@/libs/select_word";
-import { collect_word } from "@/libs/word_collector";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
-import { Switch } from "@/src/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Textarea } from "@/src/components/ui/textarea";
 
-type Tab = "ai" | "collect" | "word" | "sentence";
+type Tab = "ai" | "word" | "sentence";
 
 function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString("zh-CN", {
@@ -61,9 +56,6 @@ export default function OptionsPage() {
   const [model, setModel] = useState("");
   const [wordModel, setWordModel] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [youdaoToken, setYoudaoToken] = useState("");
-  const [eudicToken, setEudicToken] = useState("");
-  const [eudicSwitch, setEudicSwitch] = useState(false);
   const [collectionWords, setCollectionWords] = useState<WordData[]>([]);
   const [sentenceHighlights, setSentenceHighlights] = useState<SentenceHighlightData[]>([]);
   const [selectedWebsite, setSelectedWebsite] = useState("");
@@ -71,8 +63,6 @@ export default function OptionsPage() {
   const [sentenceHighlightColor, setSentenceHighlightColor] = useState(DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [wordSyncing, setWordSyncing] = useState<number[]>([]);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState("");
@@ -89,9 +79,6 @@ export default function OptionsPage() {
         storedModel,
         storedWordModel,
         storedPrompt,
-        storedYoudaoToken,
-        storedEudicToken,
-        storedEudicSwitch,
         storedWords,
         storedColor,
       ] = await Promise.all([
@@ -101,9 +88,6 @@ export default function OptionsPage() {
         ai_model_storage.getValue(),
         ai_word_model_storage.getValue(),
         ai_prompt_storage.getValue(),
-        youdao_token_storage.getValue(),
-        eudic_token_storage.getValue(),
-        eudic_switch_storage.getValue(),
         collection_words_storage.getValue(),
         sentence_highlight_color_storage.getValue(),
       ]);
@@ -115,9 +99,6 @@ export default function OptionsPage() {
       setModel(storedModel || "");
       setWordModel(storedWordModel || "");
       setPrompt(storedPrompt || "");
-      setYoudaoToken(storedYoudaoToken || "");
-      setEudicToken(storedEudicToken || "");
-      setEudicSwitch(Boolean(storedEudicSwitch));
       setCollectionWords(storedWords || []);
       setSentenceHighlightColor(storedColor || DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
       setSentenceHighlights(highlights);
@@ -204,26 +185,6 @@ export default function OptionsPage() {
     }
   }
 
-  async function handleSaveCollection() {
-    if (eudicSwitch && !eudicToken.trim()) {
-      notify("请填写欧路词典授权信息", "error");
-      return;
-    }
-    setSaving(true);
-    try {
-      await Promise.all([
-        eudic_token_storage.setValue(eudicToken.trim() || null),
-        eudic_switch_storage.setValue(eudicSwitch),
-        youdao_token_storage.setValue(youdaoToken.trim() || null),
-      ]);
-      notify("收藏设置已保存");
-    } catch {
-      notify("保存失败", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleTest() {
     if (!apiUrl.trim() || !apiKey.trim() || !model.trim()) {
       setDialogError(true);
@@ -258,58 +219,6 @@ export default function OptionsPage() {
       setDialogContent(error?.message || "请求失败");
     } finally {
       setTesting(false);
-    }
-  }
-
-  async function handleRemoteSync() {
-    if (!collectionWords.length) {
-      notify("暂无可同步的单词", "error");
-      return;
-    }
-    if (!eudicSwitch) {
-      notify("请先开启欧路词典同步", "error");
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      let successCount = 0;
-      let failureCount = 0;
-      const failedWords: string[] = [];
-      for (const word of collectionWords) {
-        const results = await collect_word(word.word);
-        const failed = results.filter((item) => item.code !== 0);
-        if (failed.length) {
-          failureCount += 1;
-          failedWords.push(word.word);
-        } else {
-          successCount += 1;
-        }
-      }
-      if (!failureCount) {
-        notify(`远程同步完成，成功 ${successCount} 个单词`);
-      } else {
-        notify(`远程同步完成，成功 ${successCount} 个，失败 ${failureCount} 个：${failedWords.join("、")}`, "error");
-      }
-    } catch (error: any) {
-      notify(error?.message ? `同步失败：${error.message}` : "同步失败", "error");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  async function handleSyncSingleWord(word: WordData, idx: number) {
-    if (!eudicSwitch) {
-      notify("请先开启欧路词典同步", "error");
-      return;
-    }
-    setWordSyncing((list) => [...list, idx]);
-    try {
-      const results = await collect_word(word.word);
-      const failed = results.filter((item) => item.code !== 0);
-      notify(failed.length ? `同步 ${word.word} 失败` : `已同步 ${word.word}`, failed.length ? "error" : "success");
-    } finally {
-      setWordSyncing((list) => list.filter((item) => item !== idx));
     }
   }
 
@@ -440,7 +349,6 @@ export default function OptionsPage() {
         <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="space-y-4">
           <TabsList className="w-full flex-wrap gap-1">
             <TabsTrigger value="ai">AI 翻译</TabsTrigger>
-            <TabsTrigger value="collect">收藏设置</TabsTrigger>
             <TabsTrigger value="word">生词本</TabsTrigger>
             <TabsTrigger value="sentence">句子高亮</TabsTrigger>
           </TabsList>
@@ -483,51 +391,15 @@ export default function OptionsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="collect">
-            <Card>
-              <CardHeader>
-                <CardTitle>收藏设置</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                  <div>
-                    <div className="text-sm">生词同步到欧路词典</div>
-                    <p className="font-medium text-slate-500">开启后可在生词本中执行单词同步和批量远程同步。</p>
-                  </div>
-                  <Switch checked={eudicSwitch} onCheckedChange={setEudicSwitch} />
-                </div>
-                {eudicSwitch ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-medium">欧路词典授权信息</label>
-                      <Input value={eudicToken} onChange={(e) => setEudicToken(e.target.value)} placeholder="NIS XXXXXXXXX" />
-                    </div>
-                  </div>
-                ) : null}
-                <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={handleRemoteSync} disabled={syncing || !collectionWords.length}>
-                    {syncing ? "同步中..." : "远程同步"}
-                  </Button>
-                  <Button onClick={handleSaveCollection} disabled={saving}>
-                    {saving ? "保存中..." : "保存设置"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="word">
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <CardTitle>生词本</CardTitle>
-                    <CardDescription>共 {collectionWords.length} 个单词，可删除、单词同步和导出。</CardDescription>
+                    <CardDescription>共 {collectionWords.length} 个单词，可删除和导出。</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleRemoteSync} disabled={syncing || !collectionWords.length}>
-                      {syncing ? "同步中..." : "批量同步"}
-                    </Button>
                     <Button onClick={handleExportWords} disabled={!collectionWords.length}>
                       导出 TXT
                     </Button>
@@ -551,14 +423,6 @@ export default function OptionsPage() {
                               <div className="max-w-3xl text-sm leading-6 text-slate-600">{stripMeaning(word.meaning)}</div>
                             </div>
                             <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSyncSingleWord(word, idx)}
-                                disabled={wordSyncing.includes(idx)}
-                              >
-                                {wordSyncing.includes(idx) ? "同步中..." : "单词同步"}
-                              </Button>
                               <Button variant="destructive" size="sm" onClick={() => handleDeleteWord(idx)}>
                                 删除
                               </Button>
