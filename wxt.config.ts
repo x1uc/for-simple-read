@@ -12,6 +12,7 @@ export default defineConfig({
     chromiumArgs: ['--user-data-dir=./.wxt/browser-data']
   },
   manifest: {
-    permissions: ["storage"],
+    permissions: ["storage", "cookies"],
+    host_permissions: ["*://dict.youdao.com/*"],
   }
 });
