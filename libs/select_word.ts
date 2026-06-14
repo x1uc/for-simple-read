@@ -5,6 +5,7 @@ export type WordData = {
     word: string;
     pronunciation: string;
     meaning: string;
+    syncedToYoudao?: boolean;
 };
 
 export type SelectInfo = {
