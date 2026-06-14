@@ -3,7 +3,7 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 
 type PopupAction = {
-  id: "ai" | "collect" | "word" | "sentence";
+  id: "ai" | "word" | "sentence";
   title: string;
   description: string;
   icon: string;
@@ -11,7 +11,6 @@ type PopupAction = {
 
 const actions: PopupAction[] = [
   { id: "ai", title: "AI 翻译", description: "配置翻译模型与接口", icon: "AI" },
-  { id: "collect", title: "收藏设置", description: "配置欧路词典同步", icon: "CL" },
   { id: "word", title: "生词本", description: "查看与导出已收藏单词", icon: "WB" },
   { id: "sentence", title: "句子高亮", description: "管理句子高亮与导出", icon: "HL" },
 ];
