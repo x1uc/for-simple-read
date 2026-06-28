@@ -44,7 +44,6 @@ export default function OptionsPage() {
   const [wordModel, setWordModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [collectionWords, setCollectionWords] = useState<WordData[]>([]);
-  const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -121,37 +120,63 @@ export default function OptionsPage() {
       : { apiUrl, apiKey, model };
   }
 
-  async function handleSaveAi() {
-    if (!apiUrl.trim() || !apiKey.trim() || !model.trim()) {
-      notify("请填写 API 调用信息", "error");
-      return;
-    }
-    if (splitConfig && (!wordApiUrl.trim() || !wordApiKey.trim() || !wordModel.trim())) {
-      notify("请填写查词 API 调用信息", "error");
-      return;
-    }
-    setSaving(true);
-    try {
-      await Promise.all([
-        ai_api_url_storage.setValue(apiUrl.trim()),
-        ai_api_key_storage.setValue(apiKey.trim()),
-        ai_model_storage.setValue(model.trim()),
-        ai_split_config_storage.setValue(splitConfig),
-        ai_word_api_url_storage.setValue(wordApiUrl.trim() || null),
-        ai_word_api_key_storage.setValue(wordApiKey.trim() || null),
-        ai_word_model_storage.setValue(wordModel.trim() || null),
-        ai_prompt_storage.setValue(prompt.trim() === DEFAULT_TRANSLATION_PROMPT.trim() ? null : prompt.trim() || null),
-      ]);
-      notify("AI 配置已保存");
-    } catch {
-      notify("保存失败", "error");
-    } finally {
-      setSaving(false);
-    }
+  function updateApiUrl(value: string) {
+    setApiUrl(value);
+    void ai_api_url_storage.setValue(value.trim() || null);
   }
 
-  async function handleTest() {
-    if (!apiUrl.trim() || !apiKey.trim() || !model.trim()) {
+  function updateApiKey(value: string) {
+    setApiKey(value);
+    void ai_api_key_storage.setValue(value.trim() || null);
+  }
+
+  function updateModel(value: string) {
+    setModel(value);
+    void ai_model_storage.setValue(value.trim() || null);
+  }
+
+  function updateWordApiUrl(value: string) {
+    setWordApiUrl(value);
+    void ai_word_api_url_storage.setValue(value.trim() || null);
+  }
+
+  function updateWordApiKey(value: string) {
+    setWordApiKey(value);
+    void ai_word_api_key_storage.setValue(value.trim() || null);
+  }
+
+  function updateWordModel(value: string) {
+    setWordModel(value);
+    void ai_word_model_storage.setValue(value.trim() || null);
+  }
+
+  function updatePrompt(value: string) {
+    setPrompt(value);
+    void ai_prompt_storage.setValue(value.trim() === DEFAULT_TRANSLATION_PROMPT.trim() ? null : value.trim() || null);
+  }
+
+  function updateSplitConfig(checked: boolean) {
+    setSplitConfig(checked);
+    void ai_split_config_storage.setValue(checked);
+    if (!checked) return;
+
+    const nextWordApiUrl = wordApiUrl || apiUrl;
+    const nextWordApiKey = wordApiKey || apiKey;
+    const nextWordModel = wordModel || model;
+    setWordApiUrl(nextWordApiUrl);
+    setWordApiKey(nextWordApiKey);
+    setWordModel(nextWordModel);
+    void ai_word_api_url_storage.setValue(nextWordApiUrl.trim() || null);
+    void ai_word_api_key_storage.setValue(nextWordApiKey.trim() || null);
+    void ai_word_model_storage.setValue(nextWordModel.trim() || null);
+  }
+
+  async function handleTest(config?: { apiUrl: string; apiKey: string; model: string }) {
+    const testApiUrl = config?.apiUrl ?? apiUrl;
+    const testApiKey = config?.apiKey ?? apiKey;
+    const testModel = config?.model ?? model;
+
+    if (!testApiUrl.trim() || !testApiKey.trim() || !testModel.trim()) {
       setDialogError(true);
       setDialogContent("API 接口地址、模型、Secret Key 不能为空");
       setDialogOpen(true);
@@ -166,12 +191,12 @@ export default function OptionsPage() {
     setTesting(true);
     try {
       const openai = new OpenAI({
-        apiKey: apiKey.trim(),
-        baseURL: apiUrl.trim(),
+        apiKey: testApiKey.trim(),
+        baseURL: testApiUrl.trim(),
         dangerouslyAllowBrowser: true,
       });
       const stream = await openai.chat.completions.create({
-        model: model.trim(),
+        model: testModel.trim(),
         stream: true,
         messages: [{ role: "user", content: promptText }],
       });
@@ -360,82 +385,82 @@ export default function OptionsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="text-sm font-medium">分开配置翻译和查词</div>
-                        <span className="group relative inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-500">
-                          i
-                          <span className="pointer-events-none absolute left-1/2 top-6 z-10 hidden w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left text-xs font-normal leading-5 text-slate-600 shadow-xl group-hover:block">
-                            查词更推荐速度快、成本低的模型，例如 deepseek-v4-flash；翻译更推荐能力更强的模型，以获得更自然、更准确的长文本翻译体验。
-                          </span>
-                        </span>
+                      <div className="text-sm font-medium">分开配置翻译和查词</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        开启后可以分别设置翻译和查词模型。查词使用速度快、成本低的模型，翻译使用能力更强的模型，以获得更自然、准确的长文本翻译体验。
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">默认使用一套 API 配置；开启后可以分别设置翻译和查词模型。</div>
                     </div>
                   </div>
                   <Switch
                     checked={splitConfig}
-                    onCheckedChange={(checked) => {
-                      setSplitConfig(checked);
-                      if (checked) {
-                        setWordApiUrl((value) => value || apiUrl);
-                        setWordApiKey((value) => value || apiKey);
-                        setWordModel((value) => value || model);
-                      }
-                    }}
+                    onCheckedChange={updateSplitConfig}
                   />
                 </div>
 
                 {!splitConfig ? (
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] items-end">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">API 接口地址</label>
-                      <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                      <Input value={apiUrl} onChange={(e) => updateApiUrl(e.target.value)} placeholder="https://api.example.com" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Secret Key</label>
-                      <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-xxxx" />
+                      <Input type="password" value={apiKey} onChange={(e) => updateApiKey(e.target.value)} placeholder="sk-xxxx" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">AI 模型</label>
-                      <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
+                      <Input value={model} onChange={(e) => updateModel(e.target.value)} placeholder="gpt-4o" />
                     </div>
+                    <Button variant="secondary" onClick={() => handleTest()} disabled={testing}>
+                      {testing ? "测试中..." : "测试 API"}
+                    </Button>
                   </div>
                 ) : (
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-                      <div>
-                        <div className="font-medium">翻译配置</div>
-                        <div className="mt-1 text-xs text-slate-500">用于选中文本后的 AI 翻译。</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-medium">翻译配置</div>
+                          <div className="mt-1 text-xs text-slate-500">用于选中文本后的 AI 翻译。</div>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => handleTest({ apiUrl, apiKey, model })} disabled={testing}>
+                          {testing ? "测试中..." : "测试"}
+                        </Button>
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">API 接口地址</label>
-                        <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                        <Input value={apiUrl} onChange={(e) => updateApiUrl(e.target.value)} placeholder="https://api.example.com" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Secret Key</label>
-                        <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-xxxx" />
+                        <Input type="password" value={apiKey} onChange={(e) => updateApiKey(e.target.value)} placeholder="sk-xxxx" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">AI 模型</label>
-                        <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
+                        <Input value={model} onChange={(e) => updateModel(e.target.value)} placeholder="gpt-4o" />
                       </div>
                     </div>
                     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-                      <div>
-                        <div className="font-medium">查词配置</div>
-                        <div className="mt-1 text-xs text-slate-500">用于单词释义、音标和单词原型提取。</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-medium">查词配置</div>
+                          <div className="mt-1 text-xs text-slate-500">用于单词释义、音标和单词原型提取。</div>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => handleTest({ apiUrl: wordApiUrl, apiKey: wordApiKey, model: wordModel })} disabled={testing}>
+                          {testing ? "测试中..." : "测试"}
+                        </Button>
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">API 接口地址</label>
-                        <Input value={wordApiUrl} onChange={(e) => setWordApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                        <Input value={wordApiUrl} onChange={(e) => updateWordApiUrl(e.target.value)} placeholder="https://api.example.com" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Secret Key</label>
-                        <Input type="password" value={wordApiKey} onChange={(e) => setWordApiKey(e.target.value)} placeholder="sk-xxxx" />
+                        <Input type="password" value={wordApiKey} onChange={(e) => updateWordApiKey(e.target.value)} placeholder="sk-xxxx" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">AI 模型</label>
-                        <Input value={wordModel} onChange={(e) => setWordModel(e.target.value)} placeholder="deepseek-v4-flash" />
+                        <Input value={wordModel} onChange={(e) => updateWordModel(e.target.value)} placeholder="deepseek-v4-flash" />
                       </div>
                     </div>
                   </div>
@@ -445,17 +470,9 @@ export default function OptionsPage() {
                   <label className="text-sm font-medium">翻译提示词</label>
                   <Textarea
                     value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
+                    onChange={(e) => updatePrompt(e.target.value)}
                     className="min-h-72 leading-6"
                   />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button variant="secondary" onClick={handleTest} disabled={testing}>
-                    {testing ? "测试中..." : "测试 API"}
-                  </Button>
-                  <Button onClick={handleSaveAi} disabled={saving}>
-                    {saving ? "保存中..." : "保存设置"}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
