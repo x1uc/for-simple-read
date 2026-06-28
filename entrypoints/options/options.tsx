@@ -334,9 +334,21 @@ export default function OptionsPage() {
         ) : null}
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="flex min-h-0 flex-1 flex-col space-y-4">
-          <TabsList className="w-full flex-wrap gap-1">
-            <TabsTrigger value="ai">AI 翻译</TabsTrigger>
-            <TabsTrigger value="word">生词本</TabsTrigger>
+          <TabsList className="flex-wrap gap-1 self-start">
+            <TabsTrigger value="ai" className="flex items-center gap-1.5 text-xs font-semibold">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              </svg>
+              AI 翻译
+            </TabsTrigger>
+            <TabsTrigger value="word" className="flex items-center gap-1.5 text-xs font-semibold">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+                <path d="M6 6h10"/>
+                <path d="M6 10h10"/>
+              </svg>
+              生词本
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="ai">
@@ -348,15 +360,17 @@ export default function OptionsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div>
-                      <div className="text-sm font-medium">分开配置翻译和查词</div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="text-sm font-medium">分开配置翻译和查词</div>
+                        <span className="group relative inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-500">
+                          i
+                          <span className="pointer-events-none absolute left-1/2 top-6 z-10 hidden w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left text-xs font-normal leading-5 text-slate-600 shadow-xl group-hover:block">
+                            查词更推荐速度快、成本低的模型，例如 deepseek-v4-flash；翻译更推荐能力更强的模型，以获得更自然、更准确的长文本翻译体验。
+                          </span>
+                        </span>
+                      </div>
                       <div className="mt-1 text-xs text-slate-500">默认使用一套 API 配置；开启后可以分别设置翻译和查词模型。</div>
                     </div>
-                    <span className="group relative inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-500">
-                      i
-                      <span className="pointer-events-none absolute left-1/2 top-7 z-10 hidden w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left text-xs font-normal leading-5 text-slate-600 shadow-xl group-hover:block">
-                        查词更推荐速度快、成本低的模型，例如 deepseek-v4-flash；翻译更推荐能力更强的模型，以获得更自然、更准确的长文本翻译体验。
-                      </span>
-                    </span>
                   </div>
                   <Switch
                     checked={splitConfig}
