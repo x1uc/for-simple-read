@@ -145,8 +145,13 @@ export default function WordCard({
     setIsCollected(true);
   }
 
-  function handleHighlight() {
+  async function handleHighlight() {
     if (!wordData?.word) return;
+    if (!isCollected) {
+      const storedWords = (await collection_words_storage.getValue()) || [];
+      await collection_words_storage.setValue([...storedWords, wordData]);
+      setIsCollected(true);
+    }
     eventManager.emit("highlight-word", {
       word: wordData.word,
       wordData,
@@ -223,11 +228,11 @@ export default function WordCard({
             <div className="flex gap-2">
               <button
                 type="button"
-                title="高亮"
+                title="高亮并收藏"
                 onClick={handleHighlight}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium transition hover:border-amber-300 hover:bg-amber-50"
               >
-                高亮
+                高亮并收藏
               </button>
               <button
                 type="button"
