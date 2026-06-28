@@ -43,6 +43,7 @@ export default function OptionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState("");
   const [dialogError, setDialogError] = useState(false);
+  const [testPrompt, setTestPrompt] = useState("");
   const [lemmaDialogOpen, setLemmaDialogOpen] = useState(false);
   const [lemmaLoading, setLemmaLoading] = useState(false);
   const [lemmaResults, setLemmaResults] = useState<{ word: string; lemma: string }[]>([]);
@@ -128,9 +129,11 @@ export default function OptionsPage() {
       return;
     }
 
+    const promptText = "你好，我想测试一下你是否可用！";
     setDialogOpen(true);
     setDialogContent("");
     setDialogError(false);
+    setTestPrompt(promptText);
     setTesting(true);
     try {
       const openai = new OpenAI({
@@ -141,7 +144,7 @@ export default function OptionsPage() {
       const stream = await openai.chat.completions.create({
         model: model.trim(),
         stream: true,
-        messages: [{ role: "user", content: "你好，我想测试一下你是否可用！" }],
+        messages: [{ role: "user", content: promptText }],
       });
       for await (const chunk of stream) {
         const nowText = chunk?.choices?.[0]?.delta?.content ?? "";
@@ -462,8 +465,27 @@ export default function OptionsPage() {
               </Badge>
             </div>
           </DialogHeader>
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm leading-7 text-slate-700">
-            {dialogContent || "等待响应..."}
+          <div className="mt-4">
+            {dialogError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-7 text-red-700">
+                {dialogContent}
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[24rem]">
+                <div className="space-y-4 pr-2">
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-slate-800 px-4 py-3 text-sm leading-6 text-white">
+                      {testPrompt}
+                    </div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+                      {dialogContent || (testing ? "正在思考..." : "等待响应...")}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
           </div>
           <div className="mt-4 flex justify-end">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
