@@ -5,7 +5,6 @@ import type { EventManager } from "@/libs/event_manager";
 import {
   ai_api_key_storage,
   ai_api_url_storage,
-  ai_prompt_storage,
   ai_word_model_storage,
   collection_words_storage,
 } from "@/libs/local_storage";
@@ -64,11 +63,10 @@ export default function WordCard({
         return;
       }
 
-      const [apiKey, apiUrl, model, customPrompt, selected] = await Promise.all([
+      const [apiKey, apiUrl, model, selected] = await Promise.all([
         ai_api_key_storage.getValue(),
         ai_api_url_storage.getValue(),
         ai_word_model_storage.getValue(),
-        ai_prompt_storage.getValue(),
         selectedWordStore.getValue(),
       ]);
 
@@ -101,7 +99,7 @@ export default function WordCard({
         const response = await openai.chat.completions.create({
           model,
           messages: [
-            { role: "system", content: customPrompt || defaultPrompt },
+            { role: "system", content: defaultPrompt },
             { role: "user", content: `Word: ${selected.word} Context: ${selected.context}` },
           ],
           response_format: { type: "json_object" },
