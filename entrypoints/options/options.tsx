@@ -478,8 +478,8 @@ export default function OptionsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="word" className="flex min-h-0 flex-1 flex-col">
-            <Card className="flex min-h-0 flex-1 flex-col">
+          <TabsContent value="word">
+            <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -512,14 +512,13 @@ export default function OptionsPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex min-h-0 flex-1 flex-col">
+              <CardContent className="space-y-3">
                 {!collectionWords.length ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center text-sm text-slate-500">
                     暂无单词收藏。你可以在网页上选中单词后打开单词卡进行收藏。
                   </div>
                 ) : (
-                  <ScrollArea className="min-h-0 flex-1 pr-2">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {collectionWords.map((word, idx) => (
                         <div
                           key={`${word.word}-${idx}`}
@@ -570,8 +569,7 @@ export default function OptionsPage() {
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </ScrollArea>
+                  </div>
                 )}
               </CardContent>
             </Card>
