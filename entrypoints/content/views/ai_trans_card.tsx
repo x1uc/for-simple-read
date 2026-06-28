@@ -310,9 +310,11 @@ export default function AITransCard({
           <button
             type="button"
             onClick={togglePin}
+            title={isPinned ? "取消固定" : "固定窗口"}
+            aria-label={isPinned ? "取消固定" : "固定窗口"}
             className={`rounded-xl px-3 py-2 text-xs font-medium transition ${isPinned ? "bg-sky-100 text-sky-700" : "border border-slate-200 hover:bg-slate-100"}`}
           >
-            {isPinned ? "已置顶" : "置顶"}
+            {isPinned ? "已固定" : "固定"}
           </button>
           <button
             type="button"
