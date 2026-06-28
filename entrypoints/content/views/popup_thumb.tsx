@@ -31,7 +31,7 @@ function ActionButton({
 
 export default function PopupThumb({ eventManager }: PopupThumbProps) {
   return (
-    <div className="flex h-8 items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 p-0.5 shadow-[0_6px_16px_rgba(15,23,42,0.12)] backdrop-blur">
+    <div className="flex h-9 items-center gap-0.5 rounded-full border border-slate-200/80 bg-white/90 p-0.5 shadow-[0_6px_16px_rgba(15,23,42,0.12)] backdrop-blur">
       <ActionButton
         title="单词"
         tone="hover:bg-sky-50 hover:text-sky-700"
