@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OpenAI } from "openai";
 
 import {
@@ -9,10 +9,7 @@ import {
   ai_word_model_storage,
   collection_words_storage,
   options_tab_storage,
-  DEFAULT_SENTENCE_HIGHLIGHT_COLOR,
-  sentence_highlight_color_storage,
 } from "@/libs/local_storage";
-import { SentenceHighlightStorage, type SentenceHighlightData } from "@/libs/sentence_highlight_storage";
 import { type WordData } from "@/libs/select_word";
 import { syncWordsToYoudao, YoudaoLoginRequiredError, type YoudaoSyncResult } from "@/libs/youdao_sync";
 import { Badge } from "@/src/components/ui/badge";
@@ -24,26 +21,7 @@ import { ScrollArea } from "@/src/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Textarea } from "@/src/components/ui/textarea";
 
-type Tab = "ai" | "word" | "sentence";
-
-function formatDate(timestamp: number) {
-  return new Date(timestamp).toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function getWebsiteTitle(url: string) {
-  try {
-    const { hostname, pathname } = new URL(url);
-    return hostname + (pathname !== "/" ? pathname : "");
-  } catch {
-    return url;
-  }
-}
+type Tab = "ai" | "word";
 
 function stripMeaning(text?: string | null) {
   if (!text) return "暂无释义";
@@ -58,10 +36,6 @@ export default function OptionsPage() {
   const [wordModel, setWordModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [collectionWords, setCollectionWords] = useState<WordData[]>([]);
-  const [sentenceHighlights, setSentenceHighlights] = useState<SentenceHighlightData[]>([]);
-  const [selectedWebsite, setSelectedWebsite] = useState("");
-  const [websiteSearchQuery, setWebsiteSearchQuery] = useState("");
-  const [sentenceHighlightColor, setSentenceHighlightColor] = useState(DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -88,7 +62,6 @@ export default function OptionsPage() {
         storedWordModel,
         storedPrompt,
         storedWords,
-        storedColor,
       ] = await Promise.all([
         options_tab_storage.getValue(),
         ai_api_url_storage.getValue(),
@@ -97,9 +70,7 @@ export default function OptionsPage() {
         ai_word_model_storage.getValue(),
         ai_prompt_storage.getValue(),
         collection_words_storage.getValue(),
-        sentence_highlight_color_storage.getValue(),
       ]);
-      const highlights = await SentenceHighlightStorage.getAllHighlights();
       if (!active) return;
       setTab((savedTab as Tab) || "ai");
       setApiUrl(storedApiUrl || "");
@@ -108,8 +79,6 @@ export default function OptionsPage() {
       setWordModel(storedWordModel || "");
       setPrompt(storedPrompt || "");
       setCollectionWords(storedWords || []);
-      setSentenceHighlightColor(storedColor || DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
-      setSentenceHighlights(highlights);
     })().catch(() => undefined);
     return () => {
       active = false;
@@ -127,49 +96,6 @@ export default function OptionsPage() {
     }
     messageTimerRef.current = window.setTimeout(() => setMessage(null), 3000);
   }
-
-  async function refreshHighlights() {
-    const highlights = await SentenceHighlightStorage.getAllHighlights();
-    setSentenceHighlights(highlights);
-    if (selectedWebsite && !highlights.some((item) => item.url === selectedWebsite)) {
-      setSelectedWebsite("");
-    }
-  }
-
-  const websiteGroups = useMemo(() => {
-    const groups = new Map<string, { title: string; url: string; highlights: SentenceHighlightData[] }>();
-    sentenceHighlights.forEach((highlight) => {
-      if (!groups.has(highlight.url)) {
-        groups.set(highlight.url, {
-          title: highlight.title || getWebsiteTitle(highlight.url),
-          url: highlight.url,
-          highlights: [],
-        });
-      }
-      groups.get(highlight.url)!.highlights.push(highlight);
-    });
-    return [...groups.values()].sort((a, b) => {
-      const aLatest = Math.max(...a.highlights.map((item) => item.timestamp));
-      const bLatest = Math.max(...b.highlights.map((item) => item.timestamp));
-      return bLatest - aLatest;
-    });
-  }, [sentenceHighlights]);
-
-  const filteredWebsiteGroups = useMemo(() => {
-    const query = websiteSearchQuery.trim().toLowerCase();
-    if (!query) return websiteGroups;
-    return websiteGroups.filter(
-      (group) =>
-        group.title.toLowerCase().includes(query) || group.url.toLowerCase().includes(query),
-    );
-  }, [websiteGroups, websiteSearchQuery]);
-
-  const selectedWebsiteHighlights = useMemo(() => {
-    return websiteGroups
-      .find((group) => group.url === selectedWebsite)
-      ?.highlights.slice()
-      .sort((a, b) => b.timestamp - a.timestamp) || [];
-  }, [selectedWebsite, websiteGroups]);
 
   async function handleSaveAi() {
     if (!apiUrl.trim() || !apiKey.trim() || !model.trim() || !wordModel.trim()) {
@@ -357,89 +283,6 @@ export default function OptionsPage() {
     }
   }
 
-  async function handleSentenceHighlightColorChange(color: string) {
-    setSentenceHighlightColor(color);
-    await sentence_highlight_color_storage.setValue(color);
-    notify("高亮颜色已保存");
-  }
-
-  async function handleResetSentenceHighlightColor() {
-    setSentenceHighlightColor(DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
-    await sentence_highlight_color_storage.setValue(DEFAULT_SENTENCE_HIGHLIGHT_COLOR);
-    notify("已恢复默认高亮颜色");
-  }
-
-  async function handleDeleteHighlight(id: string) {
-    await SentenceHighlightStorage.removeHighlight(id);
-    await refreshHighlights();
-    notify("已删除高亮");
-  }
-
-  async function handleClearWebsiteHighlights() {
-    if (!selectedWebsite || !window.confirm(`确定要清空 "${getWebsiteTitle(selectedWebsite)}" 的所有高亮吗？`)) {
-      return;
-    }
-    await SentenceHighlightStorage.clearHighlights(selectedWebsite);
-    await refreshHighlights();
-    notify("已清空网站高亮");
-  }
-
-  async function handleClearAllHighlights() {
-    if (!window.confirm("确定要清空所有句子高亮吗？此操作不可恢复。")) {
-      return;
-    }
-    for (const highlight of sentenceHighlights) {
-      await SentenceHighlightStorage.removeHighlight(highlight.id);
-    }
-    await refreshHighlights();
-    notify("已清空所有高亮");
-  }
-
-  async function copyToClipboard(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      notify("已复制到剪贴板");
-    } catch {
-      notify("复制失败", "error");
-    }
-  }
-
-  function handleExportHighlights() {
-    if (!sentenceHighlights.length) {
-      notify("暂无可导出的高亮", "error");
-      return;
-    }
-    const headers = ["网站", "句子", "时间", "颜色", "备注"];
-    const csvContent = [
-      headers.join(","),
-      ...sentenceHighlights
-        .slice()
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .map((highlight) =>
-          [
-            getWebsiteTitle(highlight.url),
-            highlight.sentence,
-            formatDate(highlight.timestamp),
-            highlight.color || DEFAULT_SENTENCE_HIGHLIGHT_COLOR,
-            highlight.note || "",
-          ]
-            .map((item) => `"${String(item).replace(/"/g, '""')}"`)
-            .join(","),
-        ),
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `sentence_highlights_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    notify(`已导出 ${sentenceHighlights.length} 个高亮`);
-  }
-
   return (
     <main className="h-screen overflow-hidden px-4 py-6 text-slate-900">
       <div className="mx-auto flex h-full max-w-6xl flex-col space-y-4">
@@ -460,7 +303,6 @@ export default function OptionsPage() {
           <TabsList className="w-full flex-wrap gap-1">
             <TabsTrigger value="ai">AI 翻译</TabsTrigger>
             <TabsTrigger value="word">生词本</TabsTrigger>
-            <TabsTrigger value="sentence">句子高亮</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ai">
@@ -595,126 +437,6 @@ export default function OptionsPage() {
                       ))}
                     </div>
                   </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="sentence">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <CardTitle>句子高亮</CardTitle>
-                    <CardDescription>共 {sentenceHighlights.length} 个高亮，覆盖 {websiteGroups.length} 个网站。</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-500">
-                      <span>高亮颜色</span>
-                      <input
-                        type="color"
-                        value={sentenceHighlightColor}
-                        onChange={(e) => handleSentenceHighlightColorChange(e.target.value)}
-                        className="h-9 w-9 rounded-lg border border-slate-200 bg-transparent"
-                      />
-                    </label>
-                    <Button variant="outline" size="sm" onClick={handleResetSentenceHighlightColor}>
-                      恢复默认颜色
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleExportHighlights} disabled={!sentenceHighlights.length}>
-                      导出
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={handleClearAllHighlights} disabled={!sentenceHighlights.length}>
-                      清空
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!sentenceHighlights.length ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center text-sm text-slate-500">
-                    暂无句子高亮。在网页选中句子并执行高亮后，这里会自动汇总。
-                  </div>
-                ) : (
-                  <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-                    <div className="space-y-3">
-                      <Input
-                        value={websiteSearchQuery}
-                        onChange={(e) => setWebsiteSearchQuery(e.target.value)}
-                        placeholder="搜索网站..."
-                      />
-                      <ScrollArea className="max-h-[34rem] space-y-2 pr-2">
-                        <div className="space-y-2">
-                          {filteredWebsiteGroups.map((group) => (
-                            <button
-                              key={group.url}
-                              type="button"
-                              onClick={() => setSelectedWebsite(group.url)}
-                              className={`w-full rounded-2xl border p-4 text-left transition ${
-                                selectedWebsite === group.url
-                                  ? "border-sky-300 bg-sky-50"
-                                  : "border-slate-200 bg-white hover:border-slate-300"
-                              }`}
-                            >
-                              <div className="font-medium">{group.title}</div>
-                              <div className="mt-1 text-xs text-slate-500">{group.url}</div>
-                              <div className="mt-2 text-xs text-slate-400">{group.highlights.length} 个高亮</div>
-                            </button>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                    <div>
-                      {!selectedWebsite ? (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center text-sm text-slate-500">
-                          请选择左侧网站查看高亮详情。
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <h3 className="text-lg font-semibold">{getWebsiteTitle(selectedWebsite)}</h3>
-                              <p className="text-sm text-slate-500">{selectedWebsite}</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => window.open(selectedWebsite, "_blank")}>
-                                打开网页
-                              </Button>
-                              <Button variant="destructive" size="sm" onClick={handleClearWebsiteHighlights}>
-                                清空网站高亮
-                              </Button>
-                            </div>
-                          </div>
-                          <ScrollArea className="max-h-[34rem] space-y-3 pr-2">
-                            <div className="space-y-3">
-                              {selectedWebsiteHighlights.map((highlight) => (
-                                <div key={highlight.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                    <div className="space-y-2">
-                                      <p className="text-sm leading-6 text-slate-700">{highlight.sentence}</p>
-                                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                        <span>{formatDate(highlight.timestamp)}</span>
-                                        <span>{highlight.color || DEFAULT_SENTENCE_HIGHLIGHT_COLOR}</span>
-                                        {highlight.note ? <span>{highlight.note}</span> : null}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button variant="outline" size="sm" onClick={() => copyToClipboard(highlight.sentence)}>
-                                        复制
-                                      </Button>
-                                      <Button variant="destructive" size="sm" onClick={() => handleDeleteHighlight(highlight.id)}>
-                                        删除
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 )}
               </CardContent>
             </Card>

@@ -7,7 +7,6 @@ import { select_word_storage } from "@/libs/select_word";
 import { HighlightStorage, generateHighlightId, getElementXPath, type HighlightData } from "@/libs/highlight_storage";
 import { EventManager } from "@/libs/event_manager";
 import { HighlightRenderer } from "@/libs/highlight_renderer";
-import { SentenceHighlightRenderer } from "@/libs/sentence_highlight_renderer";
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -438,27 +437,10 @@ export default defineContentScript({
       HighlightRenderer.renderHighlights();
     });
 
-    // 添加句子高亮事件监听
-    eventManager.on('highlight-sentence', async () => {
-      if (currentSelection) {
-        await SentenceHighlightRenderer.highlightSelection(currentSelection);
-        remove_thumb_ui();
-        remove_word_card_ui();
-        remove_ai_trans_card_ui();
-      }
-    });
-
-    // 添加句子高亮渲染事件监听
-    eventManager.on('render-sentence-highlights', () => {
-      SentenceHighlightRenderer.renderHighlights();
-    });
-
     // 页面加载时恢复高亮
     setTimeout(() => {
       HighlightRenderer.renderHighlights();
       HighlightRenderer.addHighlightClickListeners(eventManager);
-      SentenceHighlightRenderer.renderHighlights();
-      SentenceHighlightRenderer.addHighlightClickListeners(eventManager);
     }, 1000); // 延迟1秒确保页面完全加载
 
   },

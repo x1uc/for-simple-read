@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { EventManager } from "@/libs/event_manager";
 
 type PopupThumbProps = {
@@ -5,11 +6,13 @@ type PopupThumbProps = {
 };
 
 function ActionButton({
-  label,
+  title,
+  children,
   tone,
   onClick,
 }: {
-  label: string;
+  title: string;
+  children: ReactNode;
   tone: string;
   onClick: () => void;
 }) {
@@ -17,31 +20,66 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 ${tone}`}
+      title={title}
+      aria-label={title}
+      className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 ${tone}`}
     >
-      {label}
+      {children}
     </button>
   );
 }
 
 export default function PopupThumb({ eventManager }: PopupThumbProps) {
   return (
-    <div className="flex min-w-[210px] gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur">
+    <div className="flex h-8 items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 p-0.5 shadow-[0_6px_16px_rgba(15,23,42,0.12)] backdrop-blur">
       <ActionButton
-        label="单词"
-        tone="hover:border-sky-300 hover:bg-sky-50"
+        title="单词"
+        tone="hover:bg-sky-50 hover:text-sky-700"
         onClick={() => eventManager.emit("show-word-card")}
-      />
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h5" />
+        </svg>
+      </ActionButton>
       <ActionButton
-        label="翻译"
-        tone="hover:border-emerald-300 hover:bg-emerald-50"
+        title="翻译"
+        tone="hover:bg-emerald-50 hover:text-emerald-700"
         onClick={() => eventManager.emit("show-ai-trans-card")}
-      />
-      <ActionButton
-        label="高亮"
-        tone="hover:border-amber-300 hover:bg-amber-50"
-        onClick={() => eventManager.emit("highlight-sentence")}
-      />
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m5 8 6 6" />
+          <path d="m4 14 6-6 2-3" />
+          <path d="M2 5h12" />
+          <path d="M7 2h1" />
+          <path d="m14 22 5-10 3 10" />
+          <path d="M15.5 18h5" />
+        </svg>
+      </ActionButton>
     </div>
   );
 }
