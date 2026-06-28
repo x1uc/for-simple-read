@@ -16,3 +16,8 @@ export const ai_prompt_storage = storage.defineItem<string | null>("local:ai_pro
 export const collection_words_storage = storage.defineItem<WordData[]>("local:collection_words");
 
 export const options_tab_storage = storage.defineItem<string>('local:options_tab')
+
+// AI 翻译弹窗尺寸持久化
+export const ai_trans_card_size_storage = storage.defineItem<{ width: number; height: number } | null>(
+  "local:ai_trans_card_size",
+);
