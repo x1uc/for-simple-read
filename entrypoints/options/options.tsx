@@ -10,6 +10,7 @@ import {
   collection_words_storage,
   options_tab_storage,
 } from "@/libs/local_storage";
+import { DEFAULT_TRANSLATION_PROMPT } from "@/libs/ai_prompts";
 import { type WordData } from "@/libs/select_word";
 import { syncWordsToYoudao, YoudaoLoginRequiredError, type YoudaoSyncResult } from "@/libs/youdao_sync";
 import { Badge } from "@/src/components/ui/badge";
@@ -77,7 +78,7 @@ export default function OptionsPage() {
       setApiKey(storedApiKey || "");
       setModel(storedModel || "");
       setWordModel(storedWordModel || "");
-      setPrompt(storedPrompt || "");
+      setPrompt(storedPrompt || DEFAULT_TRANSLATION_PROMPT);
       setCollectionWords(storedWords || []);
     })().catch(() => undefined);
     return () => {
@@ -109,7 +110,7 @@ export default function OptionsPage() {
         ai_api_key_storage.setValue(apiKey.trim()),
         ai_model_storage.setValue(model.trim()),
         ai_word_model_storage.setValue(wordModel.trim()),
-        ai_prompt_storage.setValue(prompt.trim() || null),
+        ai_prompt_storage.setValue(prompt.trim() === DEFAULT_TRANSLATION_PROMPT.trim() ? null : prompt.trim() || null),
       ]);
       notify("AI 配置已保存");
     } catch {
@@ -328,8 +329,12 @@ export default function OptionsPage() {
                   <Input value={wordModel} onChange={(e) => setWordModel(e.target.value)} placeholder="gpt-4o-mini" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium">Prompt</label>
-                  <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="如果不想使用默认，请输入自定义 Prompt" />
+                  <label className="text-sm font-medium">翻译提示词</label>
+                  <Textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="min-h-72 leading-6"
+                  />
                 </div>
                 <div className="md:col-span-2 flex justify-end gap-3">
                   <Button variant="secondary" onClick={handleTest} disabled={testing}>
