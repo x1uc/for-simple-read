@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { OpenAI } from "openai";
 
 import {
@@ -31,6 +31,25 @@ type Tab = "ai" | "word";
 function stripMeaning(text?: string | null) {
   if (!text) return "暂无释义";
   return text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || "暂无释义";
+}
+
+function ButtonIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
 }
 
 export default function OptionsPage() {
@@ -412,6 +431,10 @@ export default function OptionsPage() {
                       <Input value={model} onChange={(e) => updateModel(e.target.value)} placeholder="gpt-4o" />
                     </div>
                     <Button variant="secondary" onClick={() => handleTest()} disabled={testing}>
+                      <ButtonIcon>
+                        <path d="M9 12.75 11.25 15 15 9.75" />
+                        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </ButtonIcon>
                       {testing ? "测试中..." : "测试 API"}
                     </Button>
                   </div>
@@ -424,6 +447,10 @@ export default function OptionsPage() {
                           <div className="mt-1 text-xs text-slate-500">用于选中文本后的 AI 翻译。</div>
                         </div>
                         <Button variant="secondary" size="sm" onClick={() => handleTest({ apiUrl, apiKey, model })} disabled={testing}>
+                          <ButtonIcon>
+                            <path d="M9 12.75 11.25 15 15 9.75" />
+                            <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </ButtonIcon>
                           {testing ? "测试中..." : "测试"}
                         </Button>
                       </div>
@@ -447,6 +474,10 @@ export default function OptionsPage() {
                           <div className="mt-1 text-xs text-slate-500">用于单词释义、音标和单词原型提取。</div>
                         </div>
                         <Button variant="secondary" size="sm" onClick={() => handleTest({ apiUrl: wordApiUrl, apiKey: wordApiKey, model: wordModel })} disabled={testing}>
+                          <ButtonIcon>
+                            <path d="M9 12.75 11.25 15 15 9.75" />
+                            <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </ButtonIcon>
                           {testing ? "测试中..." : "测试"}
                         </Button>
                       </div>
@@ -494,6 +525,10 @@ export default function OptionsPage() {
                           onClick={handleExtractLemmas}
                           disabled
                         >
+                          <ButtonIcon>
+                            <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                            <path d="M18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                          </ButtonIcon>
                           提取原型
                         </Button>
                       </span>
@@ -503,10 +538,18 @@ export default function OptionsPage() {
                         onClick={handleExtractLemmas}
                         disabled={!collectionWords.length || lemmaLoading}
                       >
+                        <ButtonIcon>
+                          <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                          <path d="M18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                        </ButtonIcon>
                         {lemmaLoading ? "提取中..." : "提取原型"}
                       </Button>
                     )}
                     <Button onClick={handleExportWords} disabled={!collectionWords.length}>
+                      <ButtonIcon>
+                        <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5" />
+                        <path d="M7.5 7.5 12 12m0 0 4.5-4.5M12 12V3" />
+                      </ButtonIcon>
                       导出 TXT
                     </Button>
                   </div>
@@ -614,6 +657,9 @@ export default function OptionsPage() {
           </div>
           <div className="mt-4 flex justify-end">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <ButtonIcon>
+                <path d="M6 18 18 6M6 6l12 12" />
+              </ButtonIcon>
               关闭
             </Button>
           </div>
@@ -676,9 +722,15 @@ export default function OptionsPage() {
               onClick={handleSyncToYoudao}
               disabled={!lemmaResults.length || lemmaLoading || youdaoSyncing}
             >
+              <ButtonIcon>
+                <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </ButtonIcon>
               {youdaoSyncing ? "同步中..." : "同步到有道词典"}
             </Button>
             <Button variant="outline" onClick={() => setLemmaDialogOpen(false)}>
+              <ButtonIcon>
+                <path d="M6 18 18 6M6 6l12 12" />
+              </ButtonIcon>
               关闭
             </Button>
           </div>
