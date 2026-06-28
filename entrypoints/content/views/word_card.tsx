@@ -5,6 +5,10 @@ import type { EventManager } from "@/libs/event_manager";
 import {
   ai_api_key_storage,
   ai_api_url_storage,
+  ai_model_storage,
+  ai_split_config_storage,
+  ai_word_api_key_storage,
+  ai_word_api_url_storage,
   ai_word_model_storage,
   collection_words_storage,
 } from "@/libs/local_storage";
@@ -63,12 +67,19 @@ export default function WordCard({
         return;
       }
 
-      const [apiKey, apiUrl, model, selected] = await Promise.all([
+      const [sharedApiKey, sharedApiUrl, sharedModel, splitConfig, wordApiKey, wordApiUrl, wordModel, selected] = await Promise.all([
         ai_api_key_storage.getValue(),
         ai_api_url_storage.getValue(),
+        ai_model_storage.getValue(),
+        ai_split_config_storage.getValue(),
+        ai_word_api_key_storage.getValue(),
+        ai_word_api_url_storage.getValue(),
         ai_word_model_storage.getValue(),
         selectedWordStore.getValue(),
       ]);
+      const apiKey = splitConfig ? wordApiKey : sharedApiKey;
+      const apiUrl = splitConfig ? wordApiUrl : sharedApiUrl;
+      const model = splitConfig ? wordModel : sharedModel;
 
       if (!selected?.word) {
         if (active) {

@@ -6,6 +6,9 @@ import {
   ai_api_url_storage,
   ai_model_storage,
   ai_prompt_storage,
+  ai_split_config_storage,
+  ai_word_api_key_storage,
+  ai_word_api_url_storage,
   ai_word_model_storage,
   collection_words_storage,
   options_tab_storage,
@@ -19,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
+import { Switch } from "@/src/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Textarea } from "@/src/components/ui/textarea";
 
@@ -34,6 +38,9 @@ export default function OptionsPage() {
   const [apiUrl, setApiUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [splitConfig, setSplitConfig] = useState(false);
+  const [wordApiUrl, setWordApiUrl] = useState("");
+  const [wordApiKey, setWordApiKey] = useState("");
   const [wordModel, setWordModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [collectionWords, setCollectionWords] = useState<WordData[]>([]);
@@ -61,6 +68,9 @@ export default function OptionsPage() {
         storedApiUrl,
         storedApiKey,
         storedModel,
+        storedSplitConfig,
+        storedWordApiUrl,
+        storedWordApiKey,
         storedWordModel,
         storedPrompt,
         storedWords,
@@ -69,6 +79,9 @@ export default function OptionsPage() {
         ai_api_url_storage.getValue(),
         ai_api_key_storage.getValue(),
         ai_model_storage.getValue(),
+        ai_split_config_storage.getValue(),
+        ai_word_api_url_storage.getValue(),
+        ai_word_api_key_storage.getValue(),
         ai_word_model_storage.getValue(),
         ai_prompt_storage.getValue(),
         collection_words_storage.getValue(),
@@ -78,6 +91,9 @@ export default function OptionsPage() {
       setApiUrl(storedApiUrl || "");
       setApiKey(storedApiKey || "");
       setModel(storedModel || "");
+      setSplitConfig(Boolean(storedSplitConfig));
+      setWordApiUrl(storedWordApiUrl || storedApiUrl || "");
+      setWordApiKey(storedWordApiKey || storedApiKey || "");
       setWordModel(storedWordModel || "");
       setPrompt(storedPrompt || DEFAULT_TRANSLATION_PROMPT);
       setCollectionWords(storedWords || []);
@@ -99,9 +115,19 @@ export default function OptionsPage() {
     messageTimerRef.current = window.setTimeout(() => setMessage(null), 3000);
   }
 
+  function getLookupConfig() {
+    return splitConfig
+      ? { apiUrl: wordApiUrl, apiKey: wordApiKey, model: wordModel }
+      : { apiUrl, apiKey, model };
+  }
+
   async function handleSaveAi() {
-    if (!apiUrl.trim() || !apiKey.trim() || !model.trim() || !wordModel.trim()) {
+    if (!apiUrl.trim() || !apiKey.trim() || !model.trim()) {
       notify("请填写 API 调用信息", "error");
+      return;
+    }
+    if (splitConfig && (!wordApiUrl.trim() || !wordApiKey.trim() || !wordModel.trim())) {
+      notify("请填写查词 API 调用信息", "error");
       return;
     }
     setSaving(true);
@@ -110,7 +136,10 @@ export default function OptionsPage() {
         ai_api_url_storage.setValue(apiUrl.trim()),
         ai_api_key_storage.setValue(apiKey.trim()),
         ai_model_storage.setValue(model.trim()),
-        ai_word_model_storage.setValue(wordModel.trim()),
+        ai_split_config_storage.setValue(splitConfig),
+        ai_word_api_url_storage.setValue(wordApiUrl.trim() || null),
+        ai_word_api_key_storage.setValue(wordApiKey.trim() || null),
+        ai_word_model_storage.setValue(wordModel.trim() || null),
         ai_prompt_storage.setValue(prompt.trim() === DEFAULT_TRANSLATION_PROMPT.trim() ? null : prompt.trim() || null),
       ]);
       notify("AI 配置已保存");
@@ -190,8 +219,9 @@ export default function OptionsPage() {
       notify("暂无可处理的单词", "error");
       return;
     }
-    if (!apiUrl.trim() || !apiKey.trim() || !wordModel.trim()) {
-      notify("请先在 AI 翻译页面配置 API 信息", "error");
+    const lookupConfig = getLookupConfig();
+    if (!lookupConfig.apiUrl.trim() || !lookupConfig.apiKey.trim() || !lookupConfig.model.trim()) {
+      notify("请先配置查词 API 信息", "error");
       return;
     }
     const unsyncedWords = collectionWords.filter((w) => !w.syncedToYoudao);
@@ -207,13 +237,13 @@ export default function OptionsPage() {
     setYoudaoSyncError("");
     try {
       const openai = new OpenAI({
-        apiKey: apiKey.trim(),
-        baseURL: apiUrl.trim(),
+        apiKey: lookupConfig.apiKey.trim(),
+        baseURL: lookupConfig.apiUrl.trim(),
         dangerouslyAllowBrowser: true,
       });
       const wordList = unsyncedWords.map((w) => w.word).join("\n");
       const response = await openai.chat.completions.create({
-        model: wordModel.trim(),
+        model: lookupConfig.model.trim(),
         messages: [
           {
             role: "system",
@@ -225,7 +255,7 @@ export default function OptionsPage() {
           { role: "user", content: wordList },
         ],
         response_format: { type: "json_object" },
-        ...(wordModel.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
+        ...(lookupConfig.model.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
       });
       const content = response.choices[0]?.message?.content;
       const parsed = JSON.parse(content || "{}");
@@ -314,23 +344,89 @@ export default function OptionsPage() {
               <CardHeader>
                 <CardTitle>AI 配置</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">API 接口地址</label>
-                  <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.example.com" />
+              <CardContent className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-medium">分开配置翻译和查词</div>
+                      <div className="mt-1 text-xs text-slate-500">默认使用一套 API 配置；开启后可以分别设置翻译和查词模型。</div>
+                    </div>
+                    <span className="group relative inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-500">
+                      i
+                      <span className="pointer-events-none absolute left-1/2 top-7 z-10 hidden w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left text-xs font-normal leading-5 text-slate-600 shadow-xl group-hover:block">
+                        查词更推荐速度快、成本低的模型，例如 deepseek-v4-flash；翻译更推荐能力更强的模型，以获得更自然、更准确的长文本翻译体验。
+                      </span>
+                    </span>
+                  </div>
+                  <Switch
+                    checked={splitConfig}
+                    onCheckedChange={(checked) => {
+                      setSplitConfig(checked);
+                      if (checked) {
+                        setWordApiUrl((value) => value || apiUrl);
+                        setWordApiKey((value) => value || apiKey);
+                        setWordModel((value) => value || model);
+                      }
+                    }}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Secret Key</label>
-                  <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-xxxx" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">AI 模型（翻译）</label>
-                  <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">AI 模型（查词）</label>
-                  <Input value={wordModel} onChange={(e) => setWordModel(e.target.value)} placeholder="gpt-4o-mini" />
-                </div>
+
+                {!splitConfig ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">API 接口地址</label>
+                      <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Secret Key</label>
+                      <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-xxxx" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">AI 模型</label>
+                      <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div>
+                        <div className="font-medium">翻译配置</div>
+                        <div className="mt-1 text-xs text-slate-500">用于选中文本后的 AI 翻译。</div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">API 接口地址</label>
+                        <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Secret Key</label>
+                        <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-xxxx" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">AI 模型</label>
+                        <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o" />
+                      </div>
+                    </div>
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div>
+                        <div className="font-medium">查词配置</div>
+                        <div className="mt-1 text-xs text-slate-500">用于单词释义、音标和单词原型提取。</div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">API 接口地址</label>
+                        <Input value={wordApiUrl} onChange={(e) => setWordApiUrl(e.target.value)} placeholder="https://api.example.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Secret Key</label>
+                        <Input type="password" value={wordApiKey} onChange={(e) => setWordApiKey(e.target.value)} placeholder="sk-xxxx" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">AI 模型</label>
+                        <Input value={wordModel} onChange={(e) => setWordModel(e.target.value)} placeholder="deepseek-v4-flash" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">翻译提示词</label>
                   <Textarea
@@ -339,7 +435,7 @@ export default function OptionsPage() {
                     className="min-h-72 leading-6"
                   />
                 </div>
-                <div className="md:col-span-2 flex justify-end gap-3">
+                <div className="flex justify-end gap-3">
                   <Button variant="secondary" onClick={handleTest} disabled={testing}>
                     {testing ? "测试中..." : "测试 API"}
                   </Button>

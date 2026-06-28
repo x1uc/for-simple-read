@@ -4,6 +4,11 @@ import { WordData } from "./select_word";
 export const ai_api_key_storage = storage.defineItem<string | null>("local:ai_api_key");
 export const ai_api_url_storage = storage.defineItem<string | null>("local:ai_api_url");
 export const ai_model_storage = storage.defineItem<string | null>("local:ai_model");
+export const ai_split_config_storage = storage.defineItem<boolean>("local:ai_split_config", {
+  fallback: false,
+});
+export const ai_word_api_key_storage = storage.defineItem<string | null>("local:ai_word_api_key");
+export const ai_word_api_url_storage = storage.defineItem<string | null>("local:ai_word_api_url");
 export const ai_word_model_storage = storage.defineItem<string | null>("local:ai_word_model");
 export const ai_prompt_storage = storage.defineItem<string | null>("local:ai_prompt");
 
