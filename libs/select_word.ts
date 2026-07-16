@@ -6,6 +6,11 @@ export type WordData = {
     pronunciation: string;
     meaning: string;
     syncedToYoudao?: boolean;
+    remoteId?: string;
+    sourceDevice?: string;
+    remoteUpdatedAt?: string;
+    cloudSyncPending?: boolean;
+    pendingYoudaoSync?: boolean;
 };
 
 export type SelectInfo = {

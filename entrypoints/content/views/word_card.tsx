@@ -13,6 +13,7 @@ import {
   collection_words_storage,
 } from "@/libs/local_storage";
 import type { SelectInfo, WordData } from "@/libs/select_word";
+import { collectWord } from "@/libs/word_cloud_sync";
 
 type SelectedWordStore = {
   getValue: () => Promise<SelectInfo | null>;
@@ -151,17 +152,25 @@ export default function WordCard({
 
   async function handleCollect() {
     if (!wordData || isCollected) return;
-    const storedWords = (await collection_words_storage.getValue()) || [];
-    await collection_words_storage.setValue([...storedWords, wordData]);
-    setIsCollected(true);
+    try {
+      await collectWord(wordData);
+    } catch (error) {
+      console.error("Cloud word upload failed; kept locally", error);
+    } finally {
+      setIsCollected(true);
+    }
   }
 
   async function handleHighlight() {
     if (!wordData?.word) return;
     if (!isCollected) {
-      const storedWords = (await collection_words_storage.getValue()) || [];
-      await collection_words_storage.setValue([...storedWords, wordData]);
-      setIsCollected(true);
+      try {
+        await collectWord(wordData);
+      } catch (error) {
+        console.error("Cloud word upload failed; kept locally", error);
+      } finally {
+        setIsCollected(true);
+      }
     }
     eventManager.emit("highlight-word", {
       word: wordData.word,

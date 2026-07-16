@@ -15,6 +15,15 @@ export const ai_prompt_storage = storage.defineItem<string | null>("local:ai_pro
 // 单词收藏持久化
 export const collection_words_storage = storage.defineItem<WordData[]>("local:collection_words");
 
+// 云端生词同步配置
+export const cloud_api_key_storage = storage.defineItem<string | null>("local:cloud_api_key");
+export const cloud_device_name_storage = storage.defineItem<string>("local:cloud_device_name", {
+  fallback: "default",
+});
+export const cloud_account_storage = storage.defineItem<{ username: string; hourlyLimit: number } | null>(
+  "local:cloud_account",
+);
+
 export const options_tab_storage = storage.defineItem<string>('local:options_tab')
 
 // AI 翻译弹窗尺寸持久化

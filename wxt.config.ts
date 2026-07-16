@@ -13,6 +13,9 @@ export default defineConfig({
   },
   manifest: {
     permissions: ["storage", "cookies"],
-    host_permissions: ["*://dict.youdao.com/*"],
+    host_permissions: [
+      "*://dict.youdao.com/*",
+      "https://word-collection-api.ergouli848.workers.dev/*",
+    ],
   }
 });

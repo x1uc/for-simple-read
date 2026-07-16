@@ -10,12 +10,22 @@ import {
   ai_word_api_key_storage,
   ai_word_api_url_storage,
   ai_word_model_storage,
+  cloud_account_storage,
+  cloud_api_key_storage,
+  cloud_device_name_storage,
   collection_words_storage,
   options_tab_storage,
 } from "@/libs/local_storage";
 import { DEFAULT_TRANSLATION_PROMPT } from "@/libs/ai_prompts";
 import { type WordData } from "@/libs/select_word";
 import { syncWordsToYoudao, YoudaoLoginRequiredError, type YoudaoSyncResult } from "@/libs/youdao_sync";
+import {
+  configureCloudSync,
+  deleteCollectedWord,
+  pushYoudaoStatuses,
+  syncCloudWords,
+} from "@/libs/word_cloud_sync";
+import type { CloudAccount } from "@/libs/cloud_api";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
@@ -63,6 +73,14 @@ export default function OptionsPage() {
   const [wordModel, setWordModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [collectionWords, setCollectionWords] = useState<WordData[]>([]);
+  const [cloudApiKey, setCloudApiKey] = useState("");
+  const [savedCloudApiKey, setSavedCloudApiKey] = useState("");
+  const [cloudDeviceName, setCloudDeviceName] = useState("default");
+  const [cloudAccount, setCloudAccount] = useState<CloudAccount | null>(null);
+  const [cloudSaving, setCloudSaving] = useState(false);
+  const [cloudSyncing, setCloudSyncing] = useState(false);
+  const [cloudSyncText, setCloudSyncText] = useState("");
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -92,6 +110,9 @@ export default function OptionsPage() {
         storedWordModel,
         storedPrompt,
         storedWords,
+        storedCloudApiKey,
+        storedCloudDeviceName,
+        storedCloudAccount,
       ] = await Promise.all([
         options_tab_storage.getValue(),
         ai_api_url_storage.getValue(),
@@ -103,6 +124,9 @@ export default function OptionsPage() {
         ai_word_model_storage.getValue(),
         ai_prompt_storage.getValue(),
         collection_words_storage.getValue(),
+        cloud_api_key_storage.getValue(),
+        cloud_device_name_storage.getValue(),
+        cloud_account_storage.getValue(),
       ]);
       if (!active) return;
       setTab((savedTab as Tab) || "ai");
@@ -115,7 +139,15 @@ export default function OptionsPage() {
       setWordModel(storedWordModel || "");
       setPrompt(storedPrompt || DEFAULT_TRANSLATION_PROMPT);
       setCollectionWords(storedWords || []);
-    })().catch(() => undefined);
+      setCloudApiKey(storedCloudApiKey || "");
+      setSavedCloudApiKey(storedCloudApiKey || "");
+      setCloudDeviceName(storedCloudDeviceName || "default");
+      setCloudAccount(storedCloudAccount || null);
+    })()
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setInitialLoaded(true);
+      });
     return () => {
       active = false;
     };
@@ -124,6 +156,15 @@ export default function OptionsPage() {
   useEffect(() => {
     options_tab_storage.setValue(tab);
   }, [tab]);
+
+  useEffect(() => {
+    return collection_words_storage.watch((words) => setCollectionWords(words || []));
+  }, []);
+
+  useEffect(() => {
+    if (!initialLoaded || tab !== "word" || !savedCloudApiKey) return;
+    void handleCloudSync(false);
+  }, [initialLoaded, tab]);
 
   function notify(text: string, type: "success" | "error" = "success") {
     setMessage({ text, type });
@@ -233,11 +274,73 @@ export default function OptionsPage() {
     }
   }
 
-  async function handleDeleteWord(idx: number) {
-    const next = collectionWords.filter((_, index) => index !== idx);
-    setCollectionWords(next);
-    await collection_words_storage.setValue(next);
-    notify("已删除单词");
+  function cloudResultText(result: {
+    uploaded: number;
+    downloaded: number;
+    removed: number;
+    failed: number;
+  }) {
+    return `同步完成：上传 ${result.uploaded}，拉取 ${result.downloaded}，删除 ${result.removed}${
+      result.failed ? `，失败 ${result.failed}` : ""
+    }`;
+  }
+
+  async function handleCloudSync(showMessage = true) {
+    if (cloudSyncing) return;
+    setCloudSyncing(true);
+    setCloudSyncText("正在同步云端生词…");
+    try {
+      const result = await syncCloudWords();
+      const text = cloudResultText(result);
+      setCloudSyncText(text);
+      setCloudAccount((account) =>
+        account ? { ...account, username: result.username } : account,
+      );
+      if (showMessage) notify(text, result.failed ? "error" : "success");
+    } catch (error: any) {
+      const text = error?.message || "云端同步失败";
+      setCloudSyncText(text);
+      if (showMessage) notify(text, "error");
+    } finally {
+      setCloudSyncing(false);
+    }
+  }
+
+  async function handleSaveCloudConfig() {
+    if (!cloudApiKey.trim()) {
+      notify("同步密钥不能为空", "error");
+      return;
+    }
+    setCloudSaving(true);
+    setCloudSyncText("正在验证账户并同步…");
+    try {
+      const { account, result } = await configureCloudSync(
+        cloudApiKey,
+        cloudDeviceName,
+      );
+      setCloudApiKey(cloudApiKey.trim());
+      setSavedCloudApiKey(cloudApiKey.trim());
+      setCloudDeviceName(cloudDeviceName.trim() || "default");
+      setCloudAccount(account);
+      const text = `账户 ${account.username}，${cloudResultText(result)}`;
+      setCloudSyncText(text);
+      notify("云端同步配置已保存");
+    } catch (error: any) {
+      const text = error?.message || "保存云端配置失败";
+      setCloudSyncText(text);
+      notify(text, "error");
+    } finally {
+      setCloudSaving(false);
+    }
+  }
+
+  async function handleDeleteWord(word: WordData) {
+    try {
+      await deleteCollectedWord(word);
+      notify("已从本地和云端删除单词");
+    } catch (error: any) {
+      notify(error?.message || "删除单词失败", "error");
+    }
   }
 
   function handleExportWords() {
@@ -336,6 +439,9 @@ export default function OptionsPage() {
         );
         setCollectionWords(next);
         await collection_words_storage.setValue(next);
+        await pushYoudaoStatuses(
+          next.filter((word) => syncedOriginalWords.has(word.word)),
+        );
       }
 
       if (!result.failed) {
@@ -510,6 +616,57 @@ export default function OptionsPage() {
           </TabsContent>
 
           <TabsContent value="word">
+            <Card className="mb-4">
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>云端同步</CardTitle>
+                    <CardDescription>
+                      本地收藏会立即上传；每次打开生词本时自动拉取其他设备的更新。
+                    </CardDescription>
+                  </div>
+                  {cloudAccount ? (
+                    <Badge variant="success">
+                      {cloudAccount.username} · {cloudAccount.hourlyLimit} 次/小时
+                    </Badge>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid items-end gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto]">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">同步密钥</label>
+                    <Input
+                      type="password"
+                      value={cloudApiKey}
+                      onChange={(event) => setCloudApiKey(event.target.value)}
+                      placeholder="填写账户密钥"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">设备名</label>
+                    <Input
+                      value={cloudDeviceName}
+                      onChange={(event) => setCloudDeviceName(event.target.value)}
+                      placeholder="default"
+                    />
+                  </div>
+                  <Button onClick={handleSaveCloudConfig} disabled={cloudSaving || cloudSyncing}>
+                    {cloudSaving ? "保存中…" : "保存并同步"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleCloudSync(true)}
+                    disabled={!savedCloudApiKey || cloudSaving || cloudSyncing}
+                  >
+                    {cloudSyncing ? "同步中…" : "立即同步"}
+                  </Button>
+                </div>
+                {cloudSyncText ? (
+                  <div className="text-xs text-slate-500">{cloudSyncText}</div>
+                ) : null}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -574,7 +731,7 @@ export default function OptionsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 shrink-0 p-0 text-slate-400 hover:bg-slate-100 hover:text-red-500"
-                                  onClick={() => handleDeleteWord(idx)}
+                                  onClick={() => handleDeleteWord(word)}
                                   title="删除单词"
                                 >
                                   <svg
@@ -608,6 +765,19 @@ export default function OptionsPage() {
                               title={stripMeaning(word.meaning)}
                             >
                               {stripMeaning(word.meaning)}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+                              <span
+                                className="rounded-full bg-slate-100 px-2 py-0.5"
+                                title={`来源设备：${word.sourceDevice || "本地"}`}
+                              >
+                                来源：{word.sourceDevice || "本地"}
+                              </span>
+                              {word.cloudSyncPending || word.pendingYoudaoSync ? (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">
+                                  待同步
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         </div>
