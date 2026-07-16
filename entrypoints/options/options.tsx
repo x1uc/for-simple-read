@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { OpenAI } from "openai";
 
 import {
   ai_api_key_storage,
@@ -13,6 +12,7 @@ import {
   cloud_account_storage,
   cloud_api_key_storage,
   cloud_device_name_storage,
+  cloud_sync_enabled_storage,
   collection_words_storage,
   options_tab_storage,
 } from "@/libs/local_storage";
@@ -25,7 +25,12 @@ import {
   pushYoudaoStatuses,
   syncCloudWords,
 } from "@/libs/word_cloud_sync";
-import type { CloudAccount } from "@/libs/cloud_api";
+import {
+  createLlmChatCompletion,
+  requestLlmHostPermission,
+  streamLlmChatCompletion,
+} from "@/libs/llm_proxy";
+import { getCloudAccount } from "@/libs/cloud_api";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
@@ -76,10 +81,10 @@ export default function OptionsPage() {
   const [cloudApiKey, setCloudApiKey] = useState("");
   const [savedCloudApiKey, setSavedCloudApiKey] = useState("");
   const [cloudDeviceName, setCloudDeviceName] = useState("default");
-  const [cloudAccount, setCloudAccount] = useState<CloudAccount | null>(null);
+  const [savedCloudDeviceName, setSavedCloudDeviceName] = useState("default");
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(true);
   const [cloudSaving, setCloudSaving] = useState(false);
   const [cloudSyncing, setCloudSyncing] = useState(false);
-  const [cloudSyncText, setCloudSyncText] = useState("");
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -95,6 +100,7 @@ export default function OptionsPage() {
   const [youdaoSyncResult, setYoudaoSyncResult] = useState<YoudaoSyncResult | null>(null);
   const [youdaoSyncError, setYoudaoSyncError] = useState("");
   const messageTimerRef = useRef<number | null>(null);
+  const skipNextCloudAutoSyncRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -112,7 +118,7 @@ export default function OptionsPage() {
         storedWords,
         storedCloudApiKey,
         storedCloudDeviceName,
-        storedCloudAccount,
+        storedCloudSyncEnabled,
       ] = await Promise.all([
         options_tab_storage.getValue(),
         ai_api_url_storage.getValue(),
@@ -126,7 +132,7 @@ export default function OptionsPage() {
         collection_words_storage.getValue(),
         cloud_api_key_storage.getValue(),
         cloud_device_name_storage.getValue(),
-        cloud_account_storage.getValue(),
+        cloud_sync_enabled_storage.getValue(),
       ]);
       if (!active) return;
       setTab((savedTab as Tab) || "ai");
@@ -142,7 +148,8 @@ export default function OptionsPage() {
       setCloudApiKey(storedCloudApiKey || "");
       setSavedCloudApiKey(storedCloudApiKey || "");
       setCloudDeviceName(storedCloudDeviceName || "default");
-      setCloudAccount(storedCloudAccount || null);
+      setSavedCloudDeviceName(storedCloudDeviceName || "default");
+      setCloudSyncEnabled(storedCloudSyncEnabled);
     })()
       .catch(() => undefined)
       .finally(() => {
@@ -162,9 +169,13 @@ export default function OptionsPage() {
   }, []);
 
   useEffect(() => {
-    if (!initialLoaded || tab !== "word" || !savedCloudApiKey) return;
+    if (!initialLoaded || tab !== "word" || !savedCloudApiKey || !cloudSyncEnabled) return;
+    if (skipNextCloudAutoSyncRef.current) {
+      skipNextCloudAutoSyncRef.current = false;
+      return;
+    }
     void handleCloudSync(false);
-  }, [initialLoaded, tab]);
+  }, [initialLoaded, tab, cloudSyncEnabled]);
 
   function notify(text: string, type: "success" | "error" = "success") {
     setMessage({ text, type });
@@ -250,15 +261,14 @@ export default function OptionsPage() {
     setTestPrompt(promptText);
     setTesting(true);
     try {
-      const openai = new OpenAI({
+      await requestLlmHostPermission(testApiUrl.trim());
+      const stream = streamLlmChatCompletion({
         apiKey: testApiKey.trim(),
-        baseURL: testApiUrl.trim(),
-        dangerouslyAllowBrowser: true,
-      });
-      const stream = await openai.chat.completions.create({
-        model: testModel.trim(),
-        stream: true,
-        messages: [{ role: "user", content: promptText }],
+        apiUrl: testApiUrl.trim(),
+        body: {
+          model: testModel.trim(),
+          messages: [{ role: "user", content: promptText }],
+        },
       });
       for await (const chunk of stream) {
         const nowText = chunk?.choices?.[0]?.delta?.content ?? "";
@@ -288,47 +298,105 @@ export default function OptionsPage() {
   async function handleCloudSync(showMessage = true) {
     if (cloudSyncing) return;
     setCloudSyncing(true);
-    setCloudSyncText("正在同步云端生词…");
     try {
       const result = await syncCloudWords();
       const text = cloudResultText(result);
-      setCloudSyncText(text);
-      setCloudAccount((account) =>
-        account ? { ...account, username: result.username } : account,
-      );
       if (showMessage) notify(text, result.failed ? "error" : "success");
     } catch (error: any) {
       const text = error?.message || "云端同步失败";
-      setCloudSyncText(text);
       if (showMessage) notify(text, "error");
     } finally {
       setCloudSyncing(false);
     }
   }
 
-  async function handleSaveCloudConfig() {
-    if (!cloudApiKey.trim()) {
+  async function applyCloudConfig(forceTest = false): Promise<boolean> {
+    const nextApiKey = cloudApiKey.trim();
+    const nextDeviceName = cloudDeviceName.trim() || "default";
+    if (!nextApiKey) {
+      setCloudApiKey(savedCloudApiKey);
       notify("同步密钥不能为空", "error");
+      return false;
+    }
+    const changed =
+      nextApiKey !== savedCloudApiKey || nextDeviceName !== savedCloudDeviceName;
+    if (!changed && !forceTest) return true;
+
+    if (!cloudSyncEnabled) {
+      if (savedCloudApiKey && nextApiKey !== savedCloudApiKey) {
+        setCloudApiKey(savedCloudApiKey);
+        notify("请先开启云端同步，再更换账户密钥", "error");
+        return false;
+      }
+      setCloudSaving(true);
+      try {
+        const account = await getCloudAccount(nextApiKey);
+        await Promise.all([
+          cloud_api_key_storage.setValue(nextApiKey),
+          cloud_device_name_storage.setValue(nextDeviceName),
+          cloud_account_storage.setValue(account),
+        ]);
+        setCloudApiKey(nextApiKey);
+        setSavedCloudApiKey(nextApiKey);
+        setCloudDeviceName(nextDeviceName);
+        setSavedCloudDeviceName(nextDeviceName);
+        if (forceTest) notify("同步密钥可用");
+        return true;
+      } catch (error: any) {
+        notify(error?.message || "同步密钥不可用", "error");
+        return false;
+      } finally {
+        setCloudSaving(false);
+      }
+    }
+
+    setCloudSaving(true);
+    try {
+      if (changed) {
+        await configureCloudSync(nextApiKey, nextDeviceName);
+      } else {
+        await getCloudAccount(nextApiKey);
+      }
+      setCloudApiKey(nextApiKey);
+      setSavedCloudApiKey(nextApiKey);
+      setCloudDeviceName(nextDeviceName);
+      setSavedCloudDeviceName(nextDeviceName);
+      if (forceTest) notify("同步密钥可用");
+      return true;
+    } catch (error: any) {
+      notify(error?.message || "同步密钥不可用", "error");
+      return false;
+    } finally {
+      setCloudSaving(false);
+    }
+  }
+
+  async function handleCloudSyncToggle(enabled: boolean) {
+    if (!enabled) {
+      setCloudSyncEnabled(false);
+      await cloud_sync_enabled_storage.setValue(false);
       return;
     }
+    if (!cloudApiKey.trim()) {
+      await cloud_sync_enabled_storage.setValue(true);
+      setCloudSyncEnabled(true);
+      return;
+    }
+
     setCloudSaving(true);
-    setCloudSyncText("正在验证账户并同步…");
     try {
-      const { account, result } = await configureCloudSync(
-        cloudApiKey,
-        cloudDeviceName,
-      );
+      const { result } = await configureCloudSync(cloudApiKey, cloudDeviceName);
       setCloudApiKey(cloudApiKey.trim());
       setSavedCloudApiKey(cloudApiKey.trim());
-      setCloudDeviceName(cloudDeviceName.trim() || "default");
-      setCloudAccount(account);
-      const text = `账户 ${account.username}，${cloudResultText(result)}`;
-      setCloudSyncText(text);
-      notify("云端同步配置已保存");
+      const nextDeviceName = cloudDeviceName.trim() || "default";
+      setCloudDeviceName(nextDeviceName);
+      setSavedCloudDeviceName(nextDeviceName);
+      await cloud_sync_enabled_storage.setValue(true);
+      skipNextCloudAutoSyncRef.current = true;
+      setCloudSyncEnabled(true);
+      if (result.failed) notify(cloudResultText(result), "error");
     } catch (error: any) {
-      const text = error?.message || "保存云端配置失败";
-      setCloudSyncText(text);
-      notify(text, "error");
+      notify(error?.message || "启用云端同步失败", "error");
     } finally {
       setCloudSaving(false);
     }
@@ -383,26 +451,26 @@ export default function OptionsPage() {
     setYoudaoSyncResult(null);
     setYoudaoSyncError("");
     try {
-      const openai = new OpenAI({
-        apiKey: lookupConfig.apiKey.trim(),
-        baseURL: lookupConfig.apiUrl.trim(),
-        dangerouslyAllowBrowser: true,
-      });
+      await requestLlmHostPermission(lookupConfig.apiUrl.trim());
       const wordList = unsyncedWords.map((w) => w.word).join("\n");
-      const response = await openai.chat.completions.create({
-        model: lookupConfig.model.trim(),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a linguistics expert. Given a list of English words or phrases, return the base/lemma form of each word. " +
-              "Respond with a JSON object in the format: {\"lemmas\": [{\"word\": \"original\", \"lemma\": \"base form\"}]}. " +
-              "If the word is already in its base form, return it as-is. For phrases, lemmatize the main verb/noun.",
-          },
-          { role: "user", content: wordList },
-        ],
-        response_format: { type: "json_object" },
-        ...(lookupConfig.model.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
+      const response = await createLlmChatCompletion({
+        apiKey: lookupConfig.apiKey.trim(),
+        apiUrl: lookupConfig.apiUrl.trim(),
+        body: {
+          model: lookupConfig.model.trim(),
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a linguistics expert. Given a list of English words or phrases, return the base/lemma form of each word. " +
+                "Respond with a JSON object in the format: {\"lemmas\": [{\"word\": \"original\", \"lemma\": \"base form\"}]}. " +
+                "If the word is already in its base form, return it as-is. For phrases, lemmatize the main verb/noun.",
+            },
+            { role: "user", content: wordList },
+          ],
+          response_format: { type: "json_object" },
+          ...(lookupConfig.model.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
+        },
       });
       const content = response.choices[0]?.message?.content;
       const parsed = JSON.parse(content || "{}");
@@ -622,24 +690,29 @@ export default function OptionsPage() {
                   <div>
                     <CardTitle>云端同步</CardTitle>
                     <CardDescription>
-                      本地收藏会立即上传；每次打开生词本时自动拉取其他设备的更新。
+                      开启后，本地收藏会立即上传；每次打开生词本时自动拉取更新。
                     </CardDescription>
                   </div>
-                  {cloudAccount ? (
-                    <Badge variant="success">
-                      {cloudAccount.username} · {cloudAccount.hourlyLimit} 次/小时
-                    </Badge>
-                  ) : null}
+                  <Switch
+                    checked={cloudSyncEnabled}
+                    onCheckedChange={handleCloudSyncToggle}
+                    disabled={cloudSaving || cloudSyncing}
+                  />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid items-end gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto]">
+              {cloudSyncEnabled ? (
+                <CardContent className="space-y-3">
+                  <div className="grid items-end gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">同步密钥</label>
                     <Input
                       type="password"
                       value={cloudApiKey}
                       onChange={(event) => setCloudApiKey(event.target.value)}
+                      onBlur={(event) => {
+                        if ((event.relatedTarget as HTMLElement | null)?.dataset.cloudKeyTest) return;
+                        void applyCloudConfig();
+                      }}
                       placeholder="填写账户密钥"
                     />
                   </div>
@@ -648,24 +721,24 @@ export default function OptionsPage() {
                     <Input
                       value={cloudDeviceName}
                       onChange={(event) => setCloudDeviceName(event.target.value)}
+                      onBlur={(event) => {
+                        if ((event.relatedTarget as HTMLElement | null)?.dataset.cloudKeyTest) return;
+                        void applyCloudConfig();
+                      }}
                       placeholder="default"
                     />
                   </div>
-                  <Button onClick={handleSaveCloudConfig} disabled={cloudSaving || cloudSyncing}>
-                    {cloudSaving ? "保存中…" : "保存并同步"}
-                  </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCloudSync(true)}
-                    disabled={!savedCloudApiKey || cloudSaving || cloudSyncing}
+                    data-cloud-key-test="true"
+                    onClick={() => applyCloudConfig(true)}
+                    disabled={!cloudApiKey.trim() || cloudSaving || cloudSyncing}
                   >
-                    {cloudSyncing ? "同步中…" : "立即同步"}
+                    {cloudSaving ? "测试中…" : "测试密钥"}
                   </Button>
-                </div>
-                {cloudSyncText ? (
-                  <div className="text-xs text-slate-500">{cloudSyncText}</div>
-                ) : null}
-              </CardContent>
+                  </div>
+                </CardContent>
+              ) : null}
             </Card>
             <Card>
               <CardHeader>

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { OpenAI } from "openai";
 
 import type { EventManager } from "@/libs/event_manager";
 import {
@@ -14,6 +13,7 @@ import {
 } from "@/libs/local_storage";
 import type { SelectInfo, WordData } from "@/libs/select_word";
 import { collectWord } from "@/libs/word_cloud_sync";
+import { createLlmChatCompletion } from "@/libs/llm_proxy";
 
 type SelectedWordStore = {
   getValue: () => Promise<SelectInfo | null>;
@@ -103,19 +103,18 @@ export default function WordCard({
       }
 
       try {
-        const openai = new OpenAI({
+        const response = await createLlmChatCompletion({
           apiKey,
-          baseURL: apiUrl,
-          dangerouslyAllowBrowser: true,
-        });
-        const response = await openai.chat.completions.create({
-          model,
-          messages: [
-            { role: "system", content: defaultPrompt },
-            { role: "user", content: `Word: ${selected.word} Context: ${selected.context}` },
-          ],
-          response_format: { type: "json_object" },
-          ...(model.includes("deepseek") ? { thinking: { "type": "disabled" } } : {}),
+          apiUrl,
+          body: {
+            model,
+            messages: [
+              { role: "system", content: defaultPrompt },
+              { role: "user", content: `Word: ${selected.word} Context: ${selected.context}` },
+            ],
+            response_format: { type: "json_object" },
+            ...(model.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
+          },
         });
         const content = response.choices[0]?.message?.content;
         const parsed = JSON.parse(content || "{}") as WordData;
@@ -131,7 +130,7 @@ export default function WordCard({
           setWordData({
             word: selected.word,
             pronunciation: "",
-            meaning: "请求查词接口失败，请检查配置和网络。",
+            meaning: error instanceof Error ? error.message : "请求查词接口失败。",
           });
         }
       } finally {

@@ -50,9 +50,11 @@ async function request<T>(
     const body = (await response.json().catch(() => ({}))) as ErrorBody;
     const resetAt = body.error?.resetAt || response.headers.get("X-RateLimit-Reset") || undefined;
     const message =
-      response.status === 429 && resetAt
-        ? `请求次数已达上限，请在 ${new Date(resetAt).toLocaleTimeString()} 后重试`
-        : body.error?.message || `云端请求失败（${response.status}）`;
+      response.status === 401
+        ? "同步密钥无效，请检查后重试"
+        : response.status === 429 && resetAt
+          ? `请求次数已达上限，请在 ${new Date(resetAt).toLocaleTimeString()} 后重试`
+          : body.error?.message || `云端请求失败（${response.status}）`;
     throw new CloudApiError(message, response.status, body.error?.code, resetAt);
   }
 

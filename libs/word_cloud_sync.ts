@@ -11,6 +11,7 @@ import {
   cloud_account_storage,
   cloud_api_key_storage,
   cloud_device_name_storage,
+  cloud_sync_enabled_storage,
   collection_words_storage,
 } from "./local_storage";
 import type { WordData } from "./select_word";
@@ -83,9 +84,10 @@ async function uploadWord(word: WordData, config: CloudConfig): Promise<WordData
 }
 
 export async function collectWord(word: WordData): Promise<void> {
-  const [config, deviceName] = await Promise.all([
+  const [config, deviceName, syncEnabled] = await Promise.all([
     getCloudConfig(),
     cloud_device_name_storage.getValue(),
+    cloud_sync_enabled_storage.getValue(),
   ]);
   const words = (await collection_words_storage.getValue()) || [];
   const key = normalizeWord(word.word);
@@ -97,7 +99,7 @@ export async function collectWord(word: WordData): Promise<void> {
     cloudSyncPending: true,
   };
   await replaceStoredWord(local);
-  if (config) await uploadWord(local, config);
+  if (config && syncEnabled) await uploadWord(local, config);
 }
 
 export async function syncCloudWords(
@@ -204,7 +206,8 @@ export async function configureCloudSync(
 }
 
 export async function deleteCollectedWord(word: WordData): Promise<void> {
-  if (word.remoteId) {
+  const syncEnabled = await cloud_sync_enabled_storage.getValue();
+  if (word.remoteId && syncEnabled) {
     const config = await getCloudConfig();
     if (!config) throw new Error("缺少云端密钥，无法安全删除远程单词");
     await deleteRemoteWord(config.apiKey, word.remoteId);
@@ -213,8 +216,11 @@ export async function deleteCollectedWord(word: WordData): Promise<void> {
 }
 
 export async function pushYoudaoStatuses(words: WordData[]): Promise<void> {
-  const config = await getCloudConfig();
-  if (!config) return;
+  const [config, syncEnabled] = await Promise.all([
+    getCloudConfig(),
+    cloud_sync_enabled_storage.getValue(),
+  ]);
+  if (!config || !syncEnabled) return;
 
   for (const word of words.filter((item) => item.syncedToYoudao)) {
     try {

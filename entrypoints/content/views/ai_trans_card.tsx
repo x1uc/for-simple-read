@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { OpenAI } from "openai";
 
 import type { EventManager } from "@/libs/event_manager";
 import { DEFAULT_TRANSLATION_PROMPT } from "@/libs/ai_prompts";
 import { ai_api_key_storage, ai_api_url_storage, ai_model_storage, ai_prompt_storage, ai_trans_card_size_storage } from "@/libs/local_storage";
 import type { SelectInfo } from "@/libs/select_word";
+import { streamLlmChatCompletion } from "@/libs/llm_proxy";
 
 type SelectedWordStore = {
   getValue: () => Promise<SelectInfo | null>;
@@ -83,15 +83,17 @@ export default function AITransCard({
       if (!model)  { setContent("请先在选项页配置 AI 模型"); return; }
 
       try {
-        const openai = new OpenAI({ apiKey, baseURL: apiUrl, dangerouslyAllowBrowser: true });
-        const stream = await openai.chat.completions.create({
-          model,
-          stream: true,
-          messages: [
-            { role: "system", content: customPrompt || DEFAULT_TRANSLATION_PROMPT },
-            { role: "user", content: selection?.word || "" },
-          ],
-          ...(model.includes("deepseek") ? { thinking: { "type": "disabled" } } : {}),
+        const stream = streamLlmChatCompletion({
+          apiKey,
+          apiUrl,
+          body: {
+            model,
+            messages: [
+              { role: "system", content: customPrompt || DEFAULT_TRANSLATION_PROMPT },
+              { role: "user", content: selection?.word || "" },
+            ],
+            ...(model.includes("deepseek") ? { thinking: { type: "disabled" } } : {}),
+          },
         });
 
         for await (const chunk of stream) {
@@ -101,7 +103,7 @@ export default function AITransCard({
       } catch (error) {
         if (active) {
           console.error("AI translation error:", error);
-          setContent("请求 AI 翻译接口失败，请检查配置和网络");
+          setContent(error instanceof Error ? error.message : "请求 AI 翻译接口失败");
         }
       }
     }

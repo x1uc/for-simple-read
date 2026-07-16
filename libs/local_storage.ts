@@ -20,6 +20,9 @@ export const cloud_api_key_storage = storage.defineItem<string | null>("local:cl
 export const cloud_device_name_storage = storage.defineItem<string>("local:cloud_device_name", {
   fallback: "default",
 });
+export const cloud_sync_enabled_storage = storage.defineItem<boolean>("local:cloud_sync_enabled", {
+  fallback: true,
+});
 export const cloud_account_storage = storage.defineItem<{ username: string; hourlyLimit: number } | null>(
   "local:cloud_account",
 );
