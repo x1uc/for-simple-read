@@ -82,7 +82,7 @@ export default function OptionsPage() {
   const [savedCloudApiKey, setSavedCloudApiKey] = useState("");
   const [cloudDeviceName, setCloudDeviceName] = useState("default");
   const [savedCloudDeviceName, setSavedCloudDeviceName] = useState("default");
-  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(true);
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [cloudSaving, setCloudSaving] = useState(false);
   const [cloudSyncing, setCloudSyncing] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -135,7 +135,7 @@ export default function OptionsPage() {
         cloud_sync_enabled_storage.getValue(),
       ]);
       if (!active) return;
-      setTab((savedTab as Tab) || "ai");
+      setTab(savedTab === "word" ? "word" : "ai");
       setApiUrl(storedApiUrl || "");
       setApiKey(storedApiKey || "");
       setModel(storedModel || "");
@@ -161,8 +161,9 @@ export default function OptionsPage() {
   }, []);
 
   useEffect(() => {
-    options_tab_storage.setValue(tab);
-  }, [tab]);
+    if (!initialLoaded) return;
+    void options_tab_storage.setValue(tab);
+  }, [tab, initialLoaded]);
 
   useEffect(() => {
     return collection_words_storage.watch((words) => setCollectionWords(words || []));
@@ -536,7 +537,7 @@ export default function OptionsPage() {
   }
 
   return (
-    <main className="h-screen overflow-hidden px-4 py-6 text-slate-900">
+    <main className="min-h-screen px-4 py-6 text-slate-900">
       <div className="mx-auto flex h-full max-w-6xl flex-col space-y-4">
 
         {message ? (
