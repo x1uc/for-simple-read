@@ -149,28 +149,21 @@ export default function WordCard({
     };
   }, [cachedWordData, selectedWordStore]);
 
-  async function handleCollect() {
+  function collectInBackground() {
     if (!wordData || isCollected) return;
-    try {
-      await collectWord(wordData);
-    } catch (error) {
+    setIsCollected(true);
+    void collectWord(wordData).catch((error) => {
       console.error("Cloud word upload failed; kept locally", error);
-    } finally {
-      setIsCollected(true);
-    }
+    });
   }
 
-  async function handleHighlight() {
+  function handleCollect() {
+    collectInBackground();
+  }
+
+  function handleHighlight() {
     if (!wordData?.word) return;
-    if (!isCollected) {
-      try {
-        await collectWord(wordData);
-      } catch (error) {
-        console.error("Cloud word upload failed; kept locally", error);
-      } finally {
-        setIsCollected(true);
-      }
-    }
+    collectInBackground();
     eventManager.emit("highlight-word", {
       word: wordData.word,
       wordData,

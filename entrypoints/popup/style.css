@@ -1,8 +1,13 @@
 body {
   margin: 0;
-  min-width: 360px;
+  width: 240px;
+  box-sizing: border-box;
+  background: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
-  min-width: 360px;
+  width: 240px;
+  box-sizing: border-box;
 }
