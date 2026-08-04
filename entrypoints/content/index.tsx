@@ -13,53 +13,10 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
   async main(ctx) {
     // 核心触发代码：监听用户选择文本动作
-    document.addEventListener("mouseup", async (e) => {
-      // 如果点击的是UI内部，则不处理
-      if ((e.target as HTMLElement).closest('[data-wxt-shadow-root]')) {
-        return;
-      }
-
-
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      const selection = window.getSelection();
-      if (selection && selection.toString().trim()) {
-
-        const selectedText = selection.toString().trim();
-        const position = getSelectionPosition();
-        if (position) {
-          // 保存当前选择信息（加入上下文）
-          if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0).cloneRange();
-            const context = extractSelectionContext(range);
-            currentSelection = {
-              range,
-              text: selectedText,
-              position: position,
-              context
-            };
-          }
-
-          await ensure_popup_thumb(position);
-          popup_thumb_ui.mount();
-        }
-
-        select_word_storage.setValue({
-          word: selectedText,
-          context: currentSelection?.context?.sentence || ""
-        });
-
-      } else {
-        // 清除选择信息
-        currentSelection = null;
-        remove_thumb_ui();
-        remove_word_card_ui(); // 同时移除单词卡
-        remove_ai_trans_card_ui(); // 同时移除AI翻译卡
-      }
-    });
 
     //--------------代码逻辑--------------------------
     let popup_thumb_ui: any = null;
+    let popup_thumb_ui_creation: Promise<any> | null = null;
     let word_card_ui: any = null;
     let ai_trans_card_ui: any = null;
     let isAiTransCardPinned = false;
@@ -127,11 +84,11 @@ export default defineContentScript({
       return { paragraphText, sentence, snippet, xpath };
     };
 
-    const getSelectionPosition = () => {
+    const getSelectionPosition = (selectionRange?: Range) => {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) return null;
 
-      const range = selection.getRangeAt(0);
+      const range = selectionRange ?? selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
       return {
@@ -154,42 +111,84 @@ export default defineContentScript({
     };
 
 
-    const ensure_popup_thumb = async (position: { x: number, y: number }) => {
-      if (!popup_thumb_ui) {
-        popup_thumb_ui = await createShadowRootUi(ctx, {
-          name: 'popup-thumb-ui',
-          position: 'overlay',
-          anchor: 'body',
-          onMount(container) {
-            // 设置容器的绝对定位
-            container.style.position = 'absolute';
-            container.style.left = `${position.x}px`;
-            container.style.top = `${position.y}px`;
-            container.style.zIndex = '10000';
-            container.style.pointerEvents = 'auto';
-            container.style.background = 'transparent';
-            container.style.border = 'none';
-            container.style.boxShadow = 'none';
-
-            const root = createRoot(container);
-            root.render(<PopupThumb eventManager={eventManager} />);
-            return root;
-          },
-          onRemove(root?: Root) {
-            root?.unmount();
-          },
-        });
-      } else {
-        // 如果UI已存在，更新位置
-        const container = popup_thumb_ui.wrapper;
-        if (container) {
-          container.style.left = `${position.x}px`;
-          container.style.top = `${position.y}px`;
-        }
-      }
+    const configurePopupHost = (shadowHost: HTMLElement) => {
+      shadowHost.style.position = 'fixed';
+      shadowHost.style.left = '0';
+      shadowHost.style.top = '0';
+      shadowHost.style.width = '0';
+      shadowHost.style.height = '0';
+      shadowHost.style.margin = '0';
+      shadowHost.style.overflow = 'visible';
+      shadowHost.style.zIndex = '10000';
+      shadowHost.style.pointerEvents = 'none';
     };
 
-    // 函数：创建并显示单词卡片UI
+    const applyPopupPosition = (container: HTMLElement, position: { x: number; y: number }) => {
+      const viewportLeft = position.x - window.scrollX;
+      const viewportTop = position.y - window.scrollY;
+      const maxLeft = Math.max(8, window.innerWidth - 96);
+      const left = Math.min(Math.max(8, viewportLeft), maxLeft);
+      const top = viewportTop + 44 <= window.innerHeight
+        ? Math.max(8, viewportTop)
+        : Math.max(8, viewportTop - 46);
+
+      container.style.position = 'fixed';
+      container.style.left = `${left}px`;
+      container.style.top = `${top}px`;
+      container.style.zIndex = '10000';
+      container.style.pointerEvents = 'auto';
+      container.style.background = 'transparent';
+      container.style.border = 'none';
+      container.style.boxShadow = 'none';
+    };
+
+    const ensure_popup_thumb_reliable = async (
+      position: { x: number, y: number },
+      shouldApply: () => boolean = () => true,
+    ) => {
+      if (!popup_thumb_ui) {
+        let creation = popup_thumb_ui_creation;
+        if (!creation) {
+          creation = createShadowRootUi(ctx, {
+            name: 'popup-thumb-ui',
+            position: 'overlay',
+            anchor: 'body',
+            onMount(container, _shadow, shadowHost) {
+              configurePopupHost(shadowHost);
+              applyPopupPosition(container, position);
+              const root = createRoot(container);
+              root.render(<PopupThumb eventManager={eventManager} />);
+              return root;
+            },
+            onRemove(root?: Root) {
+              root?.unmount();
+            },
+          });
+          popup_thumb_ui_creation = creation;
+        }
+
+        try {
+          popup_thumb_ui = await creation;
+        } finally {
+          if (popup_thumb_ui_creation === creation) {
+            popup_thumb_ui_creation = null;
+          }
+        }
+      }
+
+      if (!shouldApply()) return;
+
+      const ui = popup_thumb_ui;
+      if (!ui) return;
+      configurePopupHost(ui.shadowHost);
+      applyPopupPosition(ui.uiContainer, position);
+      if (!shouldApply()) return;
+      if (!ui.mounted) {
+        ui.mount();
+      }
+      applyPopupPosition(ui.uiContainer, position);
+    };
+
     const ensure_word_card = async (position: { x: number, y: number }) => {
       if (!word_card_ui) {
         word_card_ui = await createShadowRootUi(ctx, {
@@ -339,6 +338,90 @@ export default defineContentScript({
         aiTransCardPosition = null;
       }
     }
+
+    const readSelectionSnapshot = () => {
+      try {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return null;
+
+        const text = selection.toString().trim();
+        if (!text) return null;
+
+        const range = selection.getRangeAt(0).cloneRange();
+        const position = getSelectionPosition(range);
+        if (!position) return null;
+
+        let context;
+        try {
+          context = extractSelectionContext(range);
+        } catch (error) {
+          console.warn('Failed to extract selection context:', error);
+        }
+
+        return { range, text, position, context };
+      } catch (error) {
+        console.warn('Failed to read current selection:', error);
+        return null;
+      }
+    };
+
+    let selectionRequestId = 0;
+    let selectionFrame: number | null = null;
+
+    const isOwnUiEvent = (event: Event) => {
+      const target = event.target;
+      return target instanceof Element && !!target.closest('[data-wxt-shadow-root]');
+    };
+
+    const processSelection = async () => {
+      const requestId = ++selectionRequestId;
+      const snapshot = readSelectionSnapshot();
+
+      if (!snapshot) {
+        currentSelection = null;
+        remove_thumb_ui();
+        remove_word_card_ui();
+        remove_ai_trans_card_ui();
+        return;
+      }
+
+      currentSelection = snapshot;
+      select_word_storage.setValue({
+        word: snapshot.text,
+        context: snapshot.context?.sentence || "",
+      });
+
+      try {
+        await ensure_popup_thumb_reliable(snapshot.position, () => requestId === selectionRequestId);
+        if (requestId !== selectionRequestId) return;
+      } catch (error) {
+        console.error('Failed to show selection popup:', error);
+      }
+    };
+
+    const scheduleSelectionHandling = () => {
+      if (selectionFrame !== null) {
+        cancelAnimationFrame(selectionFrame);
+      }
+      selectionFrame = requestAnimationFrame(() => {
+        selectionFrame = null;
+        void processSelection();
+      });
+    };
+
+    const handleSelectionInteraction = (event: Event) => {
+      if (isOwnUiEvent(event)) return;
+      scheduleSelectionHandling();
+    };
+
+    document.addEventListener('pointerup', handleSelectionInteraction, true);
+    document.addEventListener('mouseup', handleSelectionInteraction, true);
+    document.addEventListener('keyup', (event: KeyboardEvent) => {
+      const selectionKeys = ['Shift', 'Control', 'Meta', 'Alt', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+      if (selectionKeys.includes(event.key) || event.ctrlKey || event.metaKey) {
+        handleSelectionInteraction(event);
+      }
+    }, true);
 
     eventManager.on('show-word-card', () => {
       const position = getSelectionPosition();

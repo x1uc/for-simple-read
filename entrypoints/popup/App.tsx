@@ -1,20 +1,7 @@
 import { options_tab_storage } from "@/libs/local_storage";
 import { Button } from "@/src/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 
-type PopupAction = {
-  id: "ai" | "word";
-  title: string;
-  description: string;
-  icon: string;
-};
-
-const actions: PopupAction[] = [
-  { id: "ai", title: "AI 翻译", description: "配置翻译模型与接口", icon: "AI" },
-  { id: "word", title: "生词本", description: "查看与导出已收藏单词", icon: "WB" },
-];
-
-async function openOptionsTab(tabName?: PopupAction["id"]) {
+async function openOptionsTab(tabName: "ai" | "word") {
   if (tabName) {
     await options_tab_storage.setValue(tabName);
   }
@@ -23,25 +10,23 @@ async function openOptionsTab(tabName?: PopupAction["id"]) {
 
 export default function App() {
   return (
-    <main className="w-[360px] p-3 text-slate-900">
-      <Card className="overflow-hidden border-sky-100/80 bg-white/95">
-        <CardContent className="grid grid-cols-2 gap-3 p-3">
-          {actions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              onClick={() => openOptionsTab(action.id)}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50/60"
-            >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-xs font-semibold text-white">
-                {action.icon}
-              </div>
-              <div className="text-sm font-semibold">{action.title}</div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{action.description}</p>
-            </button>
-          ))}
-        </CardContent>
-      </Card>
+    <main className="box-border w-[240px] select-none p-2.5 bg-slate-100/90 border border-slate-200/90 rounded-none">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="outline"
+          className="h-10 w-full rounded-none border-slate-300/90 bg-white text-sm font-medium text-slate-900 shadow-2xs hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-all"
+          onClick={() => openOptionsTab("ai")}
+        >
+          翻译配置
+        </Button>
+        <Button
+          variant="outline"
+          className="h-10 w-full rounded-none border-slate-300/90 bg-white text-sm font-medium text-slate-900 shadow-2xs hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-all"
+          onClick={() => openOptionsTab("word")}
+        >
+          生词本
+        </Button>
+      </div>
     </main>
   );
 }
