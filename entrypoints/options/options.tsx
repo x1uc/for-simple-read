@@ -101,6 +101,22 @@ export default function OptionsPage() {
   const [youdaoSyncError, setYoudaoSyncError] = useState("");
   const messageTimerRef = useRef<number | null>(null);
   const skipNextCloudAutoSyncRef = useRef(false);
+  const sortedCollectionWords = collectionWords
+    .map((word, index) => ({ word, index }))
+    .sort((a, b) => {
+      const aTime = typeof a.word.collectedAt === "number" && Number.isFinite(a.word.collectedAt)
+        ? a.word.collectedAt
+        : null;
+      const bTime = typeof b.word.collectedAt === "number" && Number.isFinite(b.word.collectedAt)
+        ? b.word.collectedAt
+        : null;
+
+      if (aTime === null && bTime === null) return b.index - a.index;
+      if (aTime === null) return 1;
+      if (bTime === null) return -1;
+      return bTime - aTime;
+    })
+    .map(({ word }) => word);
 
   useEffect(() => {
     let active = true;
@@ -793,7 +809,7 @@ export default function OptionsPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {collectionWords.map((word, idx) => (
+                      {sortedCollectionWords.map((word, idx) => (
                         <div
                           key={`${word.word}-${idx}`}
                           className="flex min-h-32 flex-col rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"

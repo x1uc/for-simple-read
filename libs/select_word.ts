@@ -5,6 +5,7 @@ export type WordData = {
     word: string;
     pronunciation: string;
     meaning: string;
+    collectedAt?: number;
     syncedToYoudao?: boolean;
     remoteId?: string;
     sourceDevice?: string;

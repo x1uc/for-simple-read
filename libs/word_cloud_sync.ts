@@ -29,12 +29,18 @@ function normalizeWord(word: string): string {
   return word.trim().normalize("NFKC").toLocaleLowerCase("en-US");
 }
 
+function getRemoteCollectedAt(remote: RemoteWord): number | undefined {
+  const timestamp = Date.parse(remote.createdAt);
+  return Number.isFinite(timestamp) ? timestamp : undefined;
+}
+
 function fromRemote(remote: RemoteWord, local?: WordData): WordData {
   const localSynced = Boolean(local?.syncedToYoudao);
   return {
     word: remote.originalWord,
     pronunciation: local?.pronunciation || "",
     meaning: remote.meaning,
+    collectedAt: getRemoteCollectedAt(remote) ?? local?.collectedAt,
     syncedToYoudao: localSynced || remote.syncedToYoudao,
     remoteId: remote.id,
     sourceDevice: remote.deviceName,
@@ -95,6 +101,7 @@ export async function collectWord(word: WordData): Promise<void> {
   const local: WordData = {
     ...existing,
     ...word,
+    collectedAt: existing?.collectedAt ?? word.collectedAt ?? Date.now(),
     sourceDevice: deviceName.trim() || "default",
     cloudSyncPending: true,
   };
